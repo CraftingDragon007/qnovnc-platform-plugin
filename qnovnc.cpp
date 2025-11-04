@@ -18,6 +18,7 @@
 #endif
 
 #include <QtCore/QDebug>
+#include <utility>
 
 QT_BEGIN_NAMESPACE
 
@@ -584,9 +585,10 @@ uint QNoVncClientCursor::removeClient(QNoVncClient *client)
 }
 #endif // QT_CONFIG(cursor)
 
-QNoVncServer::QNoVncServer(QNoVncScreen *screen, quint16 port)
+QNoVncServer::QNoVncServer(QNoVncScreen *screen, quint16 port, QString host)
     : QNoVnc_screen(screen)
     , m_port(port)
+    , m_host(std::move(host))
 {
     QMetaObject::invokeMethod(this, "init", Qt::QueuedConnection);
 }
@@ -595,10 +597,10 @@ void QNoVncServer::init()
 {
     serverSocket = new QWebSocketServer(QStringLiteral("QNoVNC Server"),
                                         QWebSocketServer::NonSecureMode, this);
-    if (!serverSocket->listen(QHostAddress::Any, m_port))
+    if (!serverSocket->listen(QHostAddress(m_host), m_port))
         qWarning() << "QNoVncServer could not connect:" << serverSocket->errorString();
     else
-        qWarning("QNoVncServer created on port %d", m_port);
+        qWarning("QNoVncServer created on port %d on host %s", m_port, m_host.toStdString().c_str());
 
     connect(serverSocket, SIGNAL(newConnection()), this, SLOT(newConnection()));
 

@@ -34,9 +34,16 @@ QNoVncIntegration::QNoVncIntegration(const QStringList &paramList)
         if (arg.contains(portRx, &match))
             port = match.captured(1).toInt();
     }
+    QString host = "0.0.0.0";
+    QRegularExpression hostRx("host=([^\\s]+)"_L1);
+    for (const QString &arg : paramList) {
+        QRegularExpressionMatch match;
+        if (arg.contains(hostRx, &match))
+            host = match.captured(1);;
+    }
 
     m_primaryScreen = new QNoVncScreen(paramList);
-    m_server = new QNoVncServer(m_primaryScreen, port);
+    m_server = new QNoVncServer(m_primaryScreen, port, host);
     m_primaryScreen->vncServer = m_server;
 }
 

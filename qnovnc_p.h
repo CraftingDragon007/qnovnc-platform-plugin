@@ -352,7 +352,7 @@ class QNoVncServer : public QObject
 {
     Q_OBJECT
 public:
-    QNoVncServer(QNoVncScreen *screen, quint16 port = 5900);
+    explicit QNoVncServer(QNoVncScreen *screen, quint16 port = 5900, QString host = "0.0.0.0");
     ~QNoVncServer();
 
     enum ServerMsg { FramebufferUpdate = 0,
@@ -371,10 +371,11 @@ private slots:
     void init();
 
 private:
-    QWebSocketServer *serverSocket;
+    QWebSocketServer *serverSocket{};
     QList<QNoVncClient*> clients;
     QNoVncScreen *QNoVnc_screen;
     quint16 m_port;
+    QString m_host;
 };
 
 QT_END_NAMESPACE
