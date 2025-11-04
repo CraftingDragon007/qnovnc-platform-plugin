@@ -1,0 +1,4 @@
+{
+    "Keys": [ "novnc" ],
+    "className": [ "QNoVncIntegrationPlugin" ]
+}

@@ -1,0 +1,90 @@
+# Qt + CMake + CLion (JetBrains) + Ninja
+# Generated on 2025-11-04
+
+# Build directories (CLion default profiles)
+cmake-build-*/
+
+# manual build directories
+build/
+out/
+
+# CMake generated files (in or out of source)
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+Makefile
+
+# Ninja
+build.ninja
+rules.ninja
+.ninja_log
+.ninja_deps
+
+# Qt auto-generated
+*_autogen/
+# When using qmake or old setups these may appear
+moc_*.cpp
+moc_*.h
+*.moc
+qrc_*.cpp
+ui_*.h
+
+# Object and compiled artifacts
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# Linker/dep files
+*.d
+*.dwp
+*.pch
+*.pdb
+*.mod*
+
+# Coverage and profiling
+*.gcno
+*.gcda
+*.gcov
+*.profraw
+*.profdata
+
+# Test/CTest temporary output
+Testing/
+
+# Logs
+*.log
+
+# IDE/editor settings
+.idea/
+.vscode/
+*.iml
+
+# Qt Creator user files
+*.user
+*.user.*
+CMakeLists.txt.user
+
+# OS files
+.DS_Store
+Thumbs.db
+Ehthumbs.db
+Desktop.ini
+
+# Archives / packages
+*.zip
+*.tar
+*.tar.*
+
+# Cache
+.cache/
