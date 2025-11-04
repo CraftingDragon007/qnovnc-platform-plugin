@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include "qnovncclient.h"
-#include "qnovnc_p.h"
+#include "qnovncclient.h"
 
-#include <QtNetwork/QTcpSocket>
-#include <QtCore/QCoreApplication>
+#include <QWebSocket>
 
 #include <qpa/qwindowsysteminterface.h>
 #include <QtGui/qguiapplication.h>
@@ -18,10 +17,10 @@
 
 QT_BEGIN_NAMESPACE
 
-QNoVncClient::QNoVncClient(QTcpSocket *clientSocket, QNoVncServer *server)
+QNoVncClient::QNoVncClient(QWebSocket *clientSocket, QNoVncServer *server)
     : QObject(server)
     , m_server(server)
-    , m_clientSocket(clientSocket)
+    , m_clientSocket(new QWebSocketDevice(clientSocket, this))
     , m_encoder(nullptr)
     , m_msgType(0)
     , m_handleMsg(false)
@@ -34,7 +33,7 @@ QNoVncClient::QNoVncClient(QTcpSocket *clientSocket, QNoVncServer *server)
     , m_protocolVersion(V3_3)
 {
     connect(m_clientSocket,SIGNAL(readyRead()),this,SLOT(readClient()));
-    connect(m_clientSocket,SIGNAL(disconnected()),this,SLOT(discardClient()));
+    connect(m_clientSocket->socket(),SIGNAL(disconnected()),this,SLOT(discardClient()));
 
     // send protocol version
     const char *proto = "RFB 003.003\n";
@@ -47,7 +46,7 @@ QNoVncClient::~QNoVncClient()
     delete m_encoder;
 }
 
-QTcpSocket *QNoVncClient::clientSocket() const
+QWebSocketDevice* QNoVncClient::clientSocket() const
 {
     return m_clientSocket;
 }

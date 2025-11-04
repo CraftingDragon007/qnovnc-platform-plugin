@@ -5,12 +5,13 @@
 #define QVNCCLIENT_H
 
 #include <QObject>
+#include <QWebSocket>
 
 #include "qnovnc_p.h"
+#include "qwebsocketdevice.h"
 
 QT_BEGIN_NAMESPACE
 
-class QTcpSocket;
 class QNoVncServer;
 
 class QNoVncClient : public QObject
@@ -27,9 +28,9 @@ public:
         ClientCutText = 6
     };
 
-    explicit QNoVncClient(QTcpSocket *clientSocket, QNoVncServer *server);
+    explicit QNoVncClient(QWebSocket *clientSocket, QNoVncServer *server);
     ~QNoVncClient();
-    QTcpSocket *clientSocket() const;
+    QWebSocketDevice* clientSocket() const;
     QNoVncServer *server() const { return m_server; }
 
     void setDirty(const QRegion &region);
@@ -78,7 +79,7 @@ private:
     bool pixelConversionNeeded() const;
 
     QNoVncServer *m_server;
-    QTcpSocket *m_clientSocket;
+    QWebSocketDevice *m_clientSocket;
     QRfbEncoder *m_encoder;
 
     // Client State

@@ -17,6 +17,7 @@ qt_add_plugin(${PROJECT_NAME} PLUGIN_TYPE platforms
     qnovncclient.cpp qnovncclient.h
     qnovncintegration.cpp qnovncintegration.h
     qnovncscreen.cpp qnovncscreen.h
+    qwebsocketdevice.h
     novnc.json
 )
 

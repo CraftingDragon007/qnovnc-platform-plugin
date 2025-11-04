@@ -15,8 +15,8 @@ QT_BEGIN_NAMESPACE
 
 Q_DECLARE_LOGGING_CATEGORY(lcVnc)
 
-class QTcpSocket;
-class QTcpServer;
+class QIODevice;
+class QWebSocketServer;
 
 class QNoVncScreen;
 class QNoVncServer;
@@ -71,8 +71,8 @@ public:
         x = _x; y = _y; w = _w; h = _h;
     }
 
-    void read(QTcpSocket *s);
-    void write(QTcpSocket *s) const;
+    void read(QIODevice *s);
+    void write(QIODevice *s) const;
 
     quint16 x;
     quint16 y;
@@ -85,8 +85,8 @@ class QRfbPixelFormat
 public:
     static int size() { return 16; }
 
-    void read(QTcpSocket *s);
-    void write(QTcpSocket *s);
+    void read(QIODevice *s);
+    void write(QIODevice *s);
 
     int bitsPerPixel;
     int depth;
@@ -109,8 +109,8 @@ public:
     int size() const { return QRfbPixelFormat::size() + 8 + strlen(name); }
     void setName(const char *n);
 
-    void read(QTcpSocket *s);
-    void write(QTcpSocket *s);
+    void read(QIODevice *s);
+    void write(QIODevice *s);
 
     quint16 width;
     quint16 height;
@@ -121,7 +121,7 @@ public:
 class QRfbSetEncodings
 {
 public:
-    bool read(QTcpSocket *s);
+    bool read(QIODevice *s);
 
     quint16 count;
 };
@@ -129,7 +129,7 @@ public:
 class QRfbFrameBufferUpdateRequest
 {
 public:
-    bool read(QTcpSocket *s);
+    bool read(QIODevice *s);
 
     char incremental;
     QRfbRect rect;
@@ -138,7 +138,7 @@ public:
 class QRfbKeyEvent
 {
 public:
-    bool read(QTcpSocket *s);
+    bool read(QIODevice *s);
 
     char down;
     int  keycode;
@@ -148,7 +148,7 @@ public:
 class QRfbPointerEvent
 {
 public:
-    bool read(QTcpSocket *s);
+    bool read(QIODevice *s);
 
     Qt::MouseButtons buttons;
     quint16 x;
@@ -158,7 +158,7 @@ public:
 class QRfbClientCutText
 {
 public:
-    bool read(QTcpSocket *s);
+    bool read(QIODevice *s);
 
     quint32 length;
 };
@@ -194,7 +194,7 @@ class QRfbSingleColorHextile
 public:
     QRfbSingleColorHextile(QRfbHextileEncoder<SRC> *e) : encoder(e) {}
     bool read(const uchar *data, int width, int height, int stride);
-    void write(QTcpSocket *socket) const;
+    void write(QIODevice *socket) const;
 
 private:
     QRfbHextileEncoder<SRC> *encoder;
@@ -206,7 +206,7 @@ class QRfbDualColorHextile
 public:
     QRfbDualColorHextile(QRfbHextileEncoder<SRC> *e) : encoder(e) {}
     bool read(const uchar *data, int width, int height, int stride);
-    void write(QTcpSocket *socket) const;
+    void write(QIODevice *socket) const;
 
 private:
     struct Rect {
@@ -251,7 +251,7 @@ class QRfbMultiColorHextile
 public:
     QRfbMultiColorHextile(QRfbHextileEncoder<SRC> *e) : encoder(e) {}
     bool read(const uchar *data, int width, int height, int stride);
-    void write(QTcpSocket *socket) const;
+    void write(QIODevice *socket) const;
 
 private:
     inline quint8* rect(int r) {
@@ -371,7 +371,7 @@ private slots:
     void init();
 
 private:
-    QTcpServer *serverSocket;
+    QWebSocketServer *serverSocket;
     QList<QNoVncClient*> clients;
     QNoVncScreen *QNoVnc_screen;
     quint16 m_port;

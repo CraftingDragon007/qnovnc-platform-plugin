@@ -3,8 +3,8 @@
 #include "qnovnc_p.h"
 #include "qnovncscreen.h"
 #include "qnovncclient.h"
-#include "QtNetwork/qtcpserver.h"
-#include "QtNetwork/qtcpsocket.h"
+#include <QtWebSockets/QWebSocketServer>
+#include <QtWebSockets/QWebSocket>
 #include <qendian.h>
 #include <qthread.h>
 
@@ -206,7 +206,7 @@ static const struct {
     { 0, 0 }
 };
 
-void QRfbRect::read(QTcpSocket *s)
+void QRfbRect::read(QIODevice *s)
 {
     quint16 buf[4];
     s->read(reinterpret_cast<char*>(buf), 8);
@@ -216,7 +216,7 @@ void QRfbRect::read(QTcpSocket *s)
     h = ntohs(buf[3]);
 }
 
-void QRfbRect::write(QTcpSocket *s) const
+void QRfbRect::write(QIODevice *s) const
 {
     quint16 buf[4];
     buf[0] = htons(x);
@@ -226,7 +226,7 @@ void QRfbRect::write(QTcpSocket *s) const
     s->write(reinterpret_cast<char*>(buf) , 8);
 }
 
-void QRfbPixelFormat::read(QTcpSocket *s)
+void QRfbPixelFormat::read(QIODevice *s)
 {
     char buf[16];
     s->read(buf, 16);
@@ -252,7 +252,7 @@ void QRfbPixelFormat::read(QTcpSocket *s)
     blueShift = buf[12];
 }
 
-void QRfbPixelFormat::write(QTcpSocket *s)
+void QRfbPixelFormat::write(QIODevice *s)
 {
     char buf[16];
     buf[0] = bitsPerPixel;
@@ -286,7 +286,7 @@ void QRfbServerInit::setName(const char *n)
     strcpy(name, n);
 }
 
-void QRfbServerInit::read(QTcpSocket *s)
+void QRfbServerInit::read(QIODevice *s)
 {
     s->read(reinterpret_cast<char *>(&width), 2);
     width = ntohs(width);
@@ -303,7 +303,7 @@ void QRfbServerInit::read(QTcpSocket *s)
     name[len] = '\0';
 }
 
-void QRfbServerInit::write(QTcpSocket *s)
+void QRfbServerInit::write(QIODevice *s)
 {
     quint16 t = htons(width);
     s->write(reinterpret_cast<char *>(&t), 2);
@@ -316,7 +316,7 @@ void QRfbServerInit::write(QTcpSocket *s)
     s->write(name, static_cast<qint64>(strlen(name)));
 }
 
-bool QRfbSetEncodings::read(QTcpSocket *s)
+bool QRfbSetEncodings::read(QIODevice *s)
 {
     if (s->bytesAvailable() < 3)
         return false;
@@ -329,7 +329,7 @@ bool QRfbSetEncodings::read(QTcpSocket *s)
     return true;
 }
 
-bool QRfbFrameBufferUpdateRequest::read(QTcpSocket *s)
+bool QRfbFrameBufferUpdateRequest::read(QIODevice *s)
 {
     if (s->bytesAvailable() < 9)
         return false;
@@ -340,7 +340,7 @@ bool QRfbFrameBufferUpdateRequest::read(QTcpSocket *s)
     return true;
 }
 
-bool QRfbKeyEvent::read(QTcpSocket *s)
+bool QRfbKeyEvent::read(QIODevice *s)
 {
     if (s->bytesAvailable() < 7)
         return false;
@@ -378,7 +378,7 @@ bool QRfbKeyEvent::read(QTcpSocket *s)
     return true;
 }
 
-bool QRfbPointerEvent::read(QTcpSocket *s)
+bool QRfbPointerEvent::read(QIODevice *s)
 {
     if (s->bytesAvailable() < 5)
         return false;
@@ -402,7 +402,7 @@ bool QRfbPointerEvent::read(QTcpSocket *s)
     return true;
 }
 
-bool QRfbClientCutText::read(QTcpSocket *s)
+bool QRfbClientCutText::read(QIODevice *s)
 {
     if (s->bytesAvailable() < 7)
         return false;
@@ -418,7 +418,7 @@ bool QRfbClientCutText::read(QTcpSocket *s)
 void QRfbRawEncoder::write()
 {
 //    QNoVncDirtyMap *map = server->dirtyMap();
-    QTcpSocket *socket = client->clientSocket();
+    QIODevice *socket = client->clientSocket();
 
     const int bytesPerPixel = client->clientBytesPerPixel();
 
@@ -492,10 +492,7 @@ void QRfbRawEncoder::write()
                 screendata += linestep;
             }
         }
-        if (socket->state() == QAbstractSocket::UnconnectedState)
-            break;
     }
-    socket->flush();
 }
 
 #if QT_CONFIG(cursor)
@@ -512,7 +509,7 @@ QNoVncClientCursor::~QNoVncClientCursor()
 
 void QNoVncClientCursor::write(QNoVncClient *client) const
 {
-    QTcpSocket *socket = client->clientSocket();
+    QIODevice *socket = client->clientSocket();
 
     // FramebufferUpdate header
     {
@@ -596,7 +593,8 @@ QNoVncServer::QNoVncServer(QNoVncScreen *screen, quint16 port)
 
 void QNoVncServer::init()
 {
-    serverSocket = new QTcpServer(this);
+    serverSocket = new QWebSocketServer(QStringLiteral("QNoVNC Server"),
+                                        QWebSocketServer::NonSecureMode, this);
     if (!serverSocket->listen(QHostAddress::Any, m_port))
         qWarning() << "QNoVncServer could not connect:" << serverSocket->errorString();
     else

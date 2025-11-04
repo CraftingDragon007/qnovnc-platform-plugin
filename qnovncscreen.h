@@ -10,7 +10,6 @@ QT_BEGIN_NAMESPACE
 
 class QPainter;
 class QFbCursor;
-class QTcpSocket;
 class QNoVncServer;
 class QNoVncDirtyMap;
 class QNoVncClientCursor;
