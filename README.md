@@ -4,7 +4,8 @@ A Qt 6 Platform Abstraction (QPA) plugin enabling noVNC client support via WebSo
 based on the original Qt VNC QPA plugin.
 
 ## Additional changes
-Prevents segfaults when the user is destroying and recreating a lot of windows.
+- Allows you to listen on a custom host (not only 0.0.0.0) (example: `QT_QPA_PLATFORM="novnc:size=1078x1106:depth=16:port=5911:host=127.0.0.1"`)
+- Prevents segfaults when the user is destroying and recreating a lot of windows.
 
 ## Licensing
 
