@@ -79,6 +79,28 @@ bool QNoVncScreen::initialize()
 
 QRegion QNoVncScreen::doRedraw()
 {
+    for (int i = 0; i < mWindowStack.size(); ++i)
+    {
+        const QFbWindow *window = mWindowStack[i];
+        if (window == nullptr)
+        {
+            qWarning("QVNCScreen::doRedraw: QFbWindow is null");
+            mWindowStack.removeAt(i);
+            i--;
+            continue;
+        }
+        if (window->window() == nullptr) {
+            qWarning("QVNCScreen::doRedraw: QFbWindow->window() is null");
+            mWindowStack.removeAt(i);
+            i--;
+            continue;
+        }
+
+        if (window->window()->windowState() == Qt::WindowMinimized)
+        {
+            window->window()->setVisible(false);
+        }
+    }
     QRegion touched = QFbScreen::doRedraw();
 
     if (touched.isEmpty())

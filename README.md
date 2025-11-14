@@ -3,6 +3,9 @@
 A Qt 6 Platform Abstraction (QPA) plugin enabling noVNC client support via WebSockets,
 based on the original Qt VNC QPA plugin.
 
+## Additional changes
+Prevents segfaults when the user is destroying and recreating a lot of windows.
+
 ## Licensing
 
 This project is licensed under the **GNU Lesser General Public License v3.0 (LGPLv3)**.
