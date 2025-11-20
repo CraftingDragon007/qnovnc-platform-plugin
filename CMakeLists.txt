@@ -5,6 +5,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+
 find_package(Qt6 REQUIRED COMPONENTS
     Core Gui Network WebSockets
     CorePrivate FbSupportPrivate GuiPrivate
