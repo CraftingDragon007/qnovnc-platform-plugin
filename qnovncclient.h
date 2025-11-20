@@ -39,7 +39,9 @@ public:
     inline bool isConnected() const { return m_state == Connected; }
 
     inline int clientBytesPerPixel() const {
-        return m_pixelFormat.bitsPerPixel / 8;
+        return m_pixelFormat.bitsPerPixel > 0
+                ? (m_pixelFormat.bitsPerPixel + 7) / 8
+                : 0;
     }
 
     void convertPixels(char *dst, const char *src, int count, int depth) const;

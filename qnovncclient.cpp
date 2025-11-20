@@ -24,12 +24,17 @@ QNoVncClient::QNoVncClient(QWebSocket *clientSocket, QNoVncServer *server)
     , m_encoder(nullptr)
     , m_msgType(0)
     , m_handleMsg(false)
+    , m_sameEndian(true)
+    , m_needConversion(true)
     , m_encodingsPending(0)
     , m_cutTextPending(0)
     , m_supportHextile(false)
     , m_wantUpdate(false)
     , m_dirtyCursor(false)
     , m_updatePending(false)
+#if Q_BYTE_ORDER == Q_BIG_ENDIAN
+    , m_swapBytes(false)
+#endif
     , m_protocolVersion(V3_3)
 {
     connect(m_clientSocket,SIGNAL(readyRead()),this,SLOT(readClient()));
@@ -329,6 +334,12 @@ void QNoVncClient::readClient()
                 sim.height = m_server->screen()->geometry().height();
                 sim.setName("Qt for Embedded Linux VNC Server");
                 sim.write(m_clientSocket);
+                m_pixelFormat = format;
+                m_sameEndian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) == !!m_pixelFormat.bigEndian;
+                m_needConversion = pixelConversionNeeded();
+#if Q_BYTE_ORDER == Q_BIG_ENDIAN
+                m_swapBytes = m_server->screen()->swapBytes();
+#endif
                 m_state = Connected;
             }
             break;
@@ -470,6 +481,7 @@ void QNoVncClient::setEncodings()
         RRE = 2,
         CoRRE = 4,
         Hextile = 5,
+        Zlib = 6,
         ZRLE = 16,
         Cursor = -239,
         DesktopSize = -223
@@ -502,6 +514,12 @@ void QNoVncClient::setEncodings()
                 m_supportHextile = true;
                 if (m_encoder)
                     break;
+                break;
+            case Zlib:
+                if (!m_encoder) {
+                    m_encoder = new QRfbZlibEncoder(this);
+                    qCDebug(lcVnc, "QNoVncServer::setEncodings: using zlib");
+                }
                 break;
             case ZRLE:
                 m_supportZRLE = true;

@@ -11,6 +11,9 @@
 #include <QtCore/qvarlengtharray.h>
 #include <qpa/qplatformcursor.h>
 
+#include <QTimer>
+#include <zlib.h>
+
 QT_BEGIN_NAMESPACE
 
 Q_DECLARE_LOGGING_CATEGORY(lcVnc)
@@ -83,6 +86,19 @@ public:
 class QRfbPixelFormat
 {
 public:
+    QRfbPixelFormat()
+        : bitsPerPixel(0),
+          depth(0),
+          bigEndian(false),
+          trueColor(false),
+          redBits(0),
+          greenBits(0),
+          blueBits(0),
+          redShift(0),
+          greenShift(0),
+          blueShift(0)
+    {}
+
     static int size() { return 16; }
 
     void read(QIODevice *s);
@@ -184,6 +200,25 @@ public:
 
 private:
     QByteArray buffer;
+};
+
+class QRfbZlibEncoder : public QRfbEncoder
+{
+public:
+    QRfbZlibEncoder(QNoVncClient *s);
+    ~QRfbZlibEncoder() override;
+
+    void write() override;
+
+private:
+    bool compressCurrentBuffer(qsizetype rawSize, qsizetype *compressedSize);
+    void ensurePixelBuffer(qsizetype size);
+    void ensureCompressedBuffer(qsizetype minimumSize);
+
+    QByteArray m_pixelBuffer;
+    QByteArray m_compressBuffer;
+    z_stream m_stream;
+    bool m_streamInitialized = false;
 };
 
 template <class SRC> class QRfbHextileEncoder;
@@ -376,6 +411,8 @@ private:
     QNoVncScreen *QNoVnc_screen;
     quint16 m_port;
     QString m_host;
+
+    QTimer* m_visualizeUpdateTimer;
 };
 
 QT_END_NAMESPACE

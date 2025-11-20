@@ -10,6 +10,7 @@
 
 #include <QtGui/qguiapplication.h>
 #include <QtGui/QWindow>
+#include <QtGui/QPainter>
 
 #ifdef Q_OS_WIN
 #include <winsock2.h>
@@ -19,6 +20,7 @@
 
 #include <QtCore/QDebug>
 #include <utility>
+#include <limits>
 
 QT_BEGIN_NAMESPACE
 
@@ -418,7 +420,6 @@ bool QRfbClientCutText::read(QIODevice *s)
 
 void QRfbRawEncoder::write()
 {
-//    QNoVncDirtyMap *map = server->dirtyMap();
     QIODevice *socket = client->clientSocket();
 
     const int bytesPerPixel = client->clientBytesPerPixel();
@@ -442,7 +443,15 @@ void QRfbRawEncoder::write()
 //                     server->screen()->geometry().height());
 //    }
 
-    const QImage screenImage = client->server()->screenImage();
+    QImage screenImage = client->server()->screenImage();
+
+    if (qEnvironmentVariableIntValue("QNOVNC_VISUALIZE_UPDATE") == 1 && !rgn.isEmpty()) {
+        QPainter p(&screenImage);
+        p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+        p.fillRect(rgn.boundingRect(), QColor(0, 0, 255, 64));
+        p.end();
+    }
+
     rgn &= screenImage.rect();
 
     const auto rectsInRegion = rgn.rectCount();
@@ -492,6 +501,155 @@ void QRfbRawEncoder::write()
                 socket->write(reinterpret_cast<const char*>(screendata), rect.w * bytesPerPixel);
                 screendata += linestep;
             }
+        }
+    }
+}
+
+QRfbZlibEncoder::QRfbZlibEncoder(QNoVncClient *s)
+    : QRfbEncoder(s)
+{
+    memset(&m_stream, 0, sizeof(m_stream));
+}
+
+QRfbZlibEncoder::~QRfbZlibEncoder()
+{
+    if (m_streamInitialized)
+        deflateEnd(&m_stream);
+}
+
+void QRfbZlibEncoder::ensurePixelBuffer(qsizetype size)
+{
+    if (m_pixelBuffer.size() < size)
+        m_pixelBuffer.resize(size);
+}
+
+void QRfbZlibEncoder::ensureCompressedBuffer(qsizetype minimumSize)
+{
+    if (m_compressBuffer.size() < minimumSize)
+        m_compressBuffer.resize(minimumSize);
+}
+
+bool QRfbZlibEncoder::compressCurrentBuffer(qsizetype rawSize, qsizetype *compressedSize)
+{
+    if (!m_streamInitialized) {
+        m_stream.zalloc = Z_NULL;
+        m_stream.zfree = Z_NULL;
+        m_stream.opaque = Z_NULL;
+        if (deflateInit(&m_stream, Z_BEST_SPEED) != Z_OK) {
+            qWarning(lcVnc) << "Failed to initialize zlib stream";
+            return false;
+        }
+        m_streamInitialized = true;
+    }
+
+    if (rawSize <= 0 || rawSize > std::numeric_limits<uLong>::max()) {
+        qWarning(lcVnc) << "Rectangle too large for zlib compression" << rawSize;
+        return false;
+    }
+
+    uLong bound = deflateBound(&m_stream, static_cast<uLong>(rawSize));
+    bound += 6; // extra headroom for Z_SYNC_FLUSH trailer
+    if (bound > std::numeric_limits<uInt>::max()) {
+        qWarning(lcVnc) << "zlib bound exceeds supported size" << bound;
+        return false;
+    }
+    ensureCompressedBuffer(static_cast<qsizetype>(bound));
+
+    m_stream.next_in = reinterpret_cast<Bytef *>(m_pixelBuffer.data());
+    m_stream.avail_in = static_cast<uInt>(rawSize);
+    m_stream.next_out = reinterpret_cast<Bytef *>(m_compressBuffer.data());
+    m_stream.avail_out = static_cast<uInt>(m_compressBuffer.size());
+
+    while (m_stream.avail_in > 0) {
+        const int ret = deflate(&m_stream, Z_SYNC_FLUSH);
+        if (ret != Z_OK) {
+            qWarning(lcVnc) << "zlib compression failed" << ret;
+            deflateEnd(&m_stream);
+            memset(&m_stream, 0, sizeof(m_stream));
+            m_streamInitialized = false;
+            return false;
+        }
+    }
+
+    *compressedSize = m_compressBuffer.size() - m_stream.avail_out;
+
+    return true;
+}
+
+void QRfbZlibEncoder::write()
+{
+    QIODevice *socket = client->clientSocket();
+    const int bytesPerPixel = client->clientBytesPerPixel();
+    QRegion rgn = client->dirtyRegion();
+    qCDebug(lcVnc) << "QRfbZlibEncoder::write()" << rgn;
+
+    QImage screenImage = client->server()->screenImage();
+    rgn &= screenImage.rect();
+
+    const int rectsInRegion = rgn.rectCount();
+
+    {
+        const char tmp[2] = { 0, 0 };
+        socket->write(tmp, sizeof(tmp));
+    }
+
+    {
+        const quint16 count = htons(static_cast<quint16>(rectsInRegion));
+        socket->write(reinterpret_cast<const char *>(&count), sizeof(count));
+    }
+
+    if (rectsInRegion <= 0)
+        return;
+
+    const bool needConversion = client->doPixelConversion();
+    const int screenDepth = screenImage.depth();
+
+    for (const QRect &tileRect : rgn) {
+        const QRfbRect rect(tileRect.x(), tileRect.y(),
+                            tileRect.width(), tileRect.height());
+        rect.write(socket);
+
+        const qsizetype rowBytes = qsizetype(rect.w) * bytesPerPixel;
+        const qsizetype rawSize = rowBytes * rect.h;
+        if (rowBytes <= 0 || rawSize <= 0) {
+            const quint32 encoding = htonl(0);
+            socket->write(reinterpret_cast<const char *>(&encoding), sizeof(encoding));
+            continue;
+        }
+
+        ensurePixelBuffer(rawSize);
+        char *dst = m_pixelBuffer.data();
+        const qsizetype linestep = screenImage.bytesPerLine();
+        const uchar *screendata = screenImage.scanLine(rect.y)
+                                  + rect.x * screenImage.depth() / 8;
+
+        if (needConversion) {
+            const qsizetype bstep = rowBytes;
+            for (int i = 0; i < rect.h; ++i) {
+                client->convertPixels(dst, reinterpret_cast<const char *>(screendata), rect.w, screenDepth);
+                screendata += linestep;
+                dst += bstep;
+            }
+        } else {
+            for (int i = 0; i < rect.h; ++i) {
+                memcpy(dst, screendata, rowBytes);
+                screendata += linestep;
+                dst += rowBytes;
+            }
+        }
+
+        qsizetype compressedSize = 0;
+        bool useZlib = compressCurrentBuffer(rawSize, &compressedSize);
+        if (useZlib) {
+            const quint32 encoding = htonl(6);
+            socket->write(reinterpret_cast<const char *>(&encoding), sizeof(encoding));
+            const quint32 length = htonl(static_cast<quint32>(compressedSize));
+            socket->write(reinterpret_cast<const char *>(&length), sizeof(length));
+            socket->write(m_compressBuffer.constData(), compressedSize);
+        } else {
+            const quint32 encoding = htonl(0);
+            socket->write(reinterpret_cast<const char *>(&encoding), sizeof(encoding));
+            socket->write(m_pixelBuffer.constData(), rawSize);
         }
     }
 }
@@ -604,6 +762,22 @@ void QNoVncServer::init()
 
     connect(serverSocket, SIGNAL(newConnection()), this, SLOT(newConnection()));
 
+    m_visualizeUpdateTimer = new QTimer(this);
+    m_visualizeUpdateTimer->setInterval(1000 * 20);
+
+    connect(m_visualizeUpdateTimer, &QTimer::timeout, [] {
+        if (qEnvironmentVariableIntValue("QNOVNC_VISUALIZE_UPDATE") == 1)
+        {
+            qputenv("QNOVNC_VISUALIZE_UPDATE", "0");
+            qWarning("QNOVNC_VISUALIZE_UPDATE is now disabled");
+        } else {
+            qputenv("QNOVNC_VISUALIZE_UPDATE", "1");
+            qWarning("QNOVNC_VISUALIZE_UPDATE is now enabled for 20 seconds");
+        }
+    });
+
+    if (qEnvironmentVariableIntValue("QNOVNC_VISUALIZE_UPDATE") == 1)
+        m_visualizeUpdateTimer->start();
 }
 
 QNoVncServer::~QNoVncServer()

@@ -12,6 +12,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     CorePrivate FbSupportPrivate GuiPrivate
 )
 find_package(Qt6 COMPONENTS InputSupportPrivate)
+find_package(ZLIB REQUIRED)
 
 qt_add_plugin(${PROJECT_NAME} PLUGIN_TYPE platforms
     main.cpp
@@ -31,6 +32,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::CorePrivate
     Qt6::FbSupportPrivate
     Qt6::GuiPrivate
+    ZLIB::ZLIB
 )
 
 if(TARGET Qt6::InputSupportPrivate)
