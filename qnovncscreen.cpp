@@ -9,12 +9,10 @@
 #include <QtGui/QPainter>
 #include <QtGui/QScreen>
 #include <QtCore/QRegularExpression>
+#include <QtCore/QStringLiteral>
 
 
 QT_BEGIN_NAMESPACE
-
-using namespace Qt::StringLiterals;
-
 
 QNoVncScreen::QNoVncScreen(const QStringList &args)
     : mArgs(args)
@@ -32,9 +30,9 @@ QNoVncScreen::~QNoVncScreen()
 
 bool QNoVncScreen::initialize()
 {
-    QRegularExpression sizeRx("size=(\\d+)x(\\d+)"_L1);
-    QRegularExpression mmSizeRx("mmsize=(?<width>(\\d*\\.)?\\d+)x(?<height>(\\d*\\.)?\\d+)"_L1);
-    QRegularExpression depthRx("depth=(\\d+)"_L1);
+    const QRegularExpression sizeRx(QStringLiteral("size=(\\d+)x(\\d+)"));
+    const QRegularExpression mmSizeRx(QStringLiteral("mmsize=(?<width>(\\d*\\.)?\\d+)x(?<height>(\\d*\\.)?\\d+)"));
+    const QRegularExpression depthRx(QStringLiteral("depth=(\\d+)"));
 
     mGeometry = QRect(0, 0, 1024, 768);
     mFormat = QImage::Format_ARGB32_Premultiplied;
@@ -204,4 +202,3 @@ QFbScreen::Flags QNoVncScreen::flags() const
 QT_END_NAMESPACE
 
 //#include "moc_qvncscreen.cpp"
-

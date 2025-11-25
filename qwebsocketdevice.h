@@ -4,6 +4,7 @@
 
 #include <QIODevice>
 #include <QWebSocket>
+#include <QtCore/QtGlobal>
 
 class QWebSocketDevice : public QIODevice {
     Q_OBJECT
@@ -16,8 +17,13 @@ public:
                 this, &QWebSocketDevice::onBinaryMessageReceived);
         connect(m_socket, &QWebSocket::disconnected,
                 this, &QWebSocketDevice::onSocketDisconnected);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         connect(m_socket, &QWebSocket::errorOccurred,
                 this, &QWebSocketDevice::onSocketError);
+#else
+        connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
+                this, &QWebSocketDevice::onSocketError);
+#endif
     }
 
     ~QWebSocketDevice() override = default;

@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include <qpa/qplatformintegrationplugin.h>
+#include <QtCore/QStringLiteral>
 #include "qnovncintegration.h"
 #include "qnovnc_p.h"
 
 QT_BEGIN_NAMESPACE
-
-using namespace Qt::StringLiterals;
 
 class QNoVncIntegrationPlugin : public QPlatformIntegrationPlugin
 {
@@ -19,7 +18,7 @@ public:
 
 QPlatformIntegration* QNoVncIntegrationPlugin::create(const QString& system, const QStringList& paramList)
 {
-    if (!system.compare("novnc"_L1, Qt::CaseInsensitive))
+    if (!system.compare(QStringLiteral("novnc"), Qt::CaseInsensitive))
         return new QNoVncIntegration(paramList);
 
     return nullptr;
@@ -28,4 +27,3 @@ QPlatformIntegration* QNoVncIntegrationPlugin::create(const QString& system, con
 QT_END_NAMESPACE
 
 #include "main.moc"
-

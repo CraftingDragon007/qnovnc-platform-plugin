@@ -5,10 +5,17 @@
 #include "qnovncscreen.h"
 #include "qnovnc_p.h"
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QtGui/private/qgenericunixfontdatabase_p.h>
 #include <QtGui/private/qdesktopunixservices_p.h>
 #include <QtGui/private/qgenericunixeventdispatcher_p.h>
+#else
+#include <QtFontDatabaseSupport/private/qgenericunixfontdatabase_p.h>
+#include <QtServiceSupport/private/qgenericunixservices_p.h>
+#include <QtEventDispatcherSupport/private/qgenericunixeventdispatcher_p.h>
+#endif
 
+#include <QtCore/QStringLiteral>
 #include <QtFbSupport/private/qfbbackingstore_p.h>
 #include <QtFbSupport/private/qfbwindow_p.h>
 #include <QtFbSupport/private/qfbcursor_p.h>
@@ -20,22 +27,26 @@
 
 #include <QtCore/QRegularExpression>
 
-QT_BEGIN_NAMESPACE
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+using QUnixPlatformServices = QDesktopUnixServices;
+#else
+using QUnixPlatformServices = QGenericUnixServices;
+#endif
 
-using namespace Qt::StringLiterals;
+QT_BEGIN_NAMESPACE
 
 QNoVncIntegration::QNoVncIntegration(const QStringList &paramList)
     : m_fontDb(new QGenericUnixFontDatabase)
 {
-    QRegularExpression portRx("port=(\\d+)"_L1);
+    const QRegularExpression portRx(QStringLiteral("port=(\\d+)"));
     quint16 port = 5900;
     for (const QString &arg : paramList) {
         QRegularExpressionMatch match;
         if (arg.contains(portRx, &match))
             port = match.captured(1).toInt();
     }
-    QString host = "0.0.0.0";
-    QRegularExpression hostRx("host=([^\\s]+)"_L1);
+    QString host = QStringLiteral("0.0.0.0");
+    const QRegularExpression hostRx(QStringLiteral("host=([^\\s]+)"));
     for (const QString &arg : paramList) {
         QRegularExpressionMatch match;
         if (arg.contains(hostRx, &match))
@@ -77,7 +88,9 @@ bool QNoVncIntegration::hasCapability(QPlatformIntegration::Capability cap) cons
     switch (cap) {
     case ThreadedPixmaps: return true;
     case WindowManagement: return false;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     case RhiBasedRendering: return false;
+#endif
     default: return QPlatformIntegration::hasCapability(cap);
     }
 }
@@ -112,7 +125,7 @@ QPlatformFontDatabase *QNoVncIntegration::fontDatabase() const
 QPlatformServices *QNoVncIntegration::services() const
 {
     if (m_services.isNull())
-        m_services.reset(new QDesktopUnixServices);
+        m_services.reset(new QUnixPlatformServices);
 
     return m_services.data();
 }
