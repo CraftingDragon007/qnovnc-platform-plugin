@@ -4,8 +4,7 @@ set -euo pipefail
 # Simple helper to build qt-novnc-platform-plugin RPMs natively on
 # RHEL-compatible distributions (RHEL, AlmaLinux, Rocky, etc.).
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-REPO_ROOT=$(cd "${SCRIPT_DIR}/.." && pwd)
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SPEC_FILE="${REPO_ROOT}/qt-novnc-platform-plugin.spec"
 RPM_TOPDIR="${REPO_ROOT}/.rpmbuild"
 RPM_DIST="${REPO_ROOT}/rpm-dist"
