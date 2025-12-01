@@ -535,7 +535,7 @@ bool QRfbZlibEncoder::compressCurrentBuffer(qsizetype rawSize, qsizetype *compre
         m_stream.zalloc = Z_NULL;
         m_stream.zfree = Z_NULL;
         m_stream.opaque = Z_NULL;
-        if (deflateInit(&m_stream, Z_BEST_SPEED) != Z_OK) {
+        if (deflateInit(&m_stream, 2) != Z_OK) {
             qWarning(lcVnc) << "Failed to initialize zlib stream";
             return false;
         }
@@ -584,6 +584,14 @@ void QRfbZlibEncoder::write()
     qCDebug(lcVnc) << "QRfbZlibEncoder::write()" << rgn;
 
     QImage screenImage = client->server()->screenImage();
+
+    if (qEnvironmentVariableIntValue("QNOVNC_VISUALIZE_UPDATE") == 1 && !rgn.isEmpty()) {
+        QPainter p(&screenImage);
+        p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+        p.fillRect(rgn.boundingRect(), QColor(0, 0, 255, 64));
+        p.end();
+    }
+
     rgn &= screenImage.rect();
 
     const int rectsInRegion = rgn.rectCount();

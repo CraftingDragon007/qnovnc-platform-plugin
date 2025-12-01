@@ -101,6 +101,18 @@ else()
     )
 endif()
 
+if(ZLIB_FOUND)
+    message(STATUS "Found ZLIB_VERSION: ${ZLIB_VERSION}")
+    if("${ZLIB_VERSION}" MATCHES "ng")
+        target_compile_definitions(${PROJECT_NAME} PRIVATE ZLIB_NG_FOUND=1)
+        message(STATUS "Likely using zlib-ng")
+    else()
+        target_compile_definitions(${PROJECT_NAME} PRIVATE ZLIB_CLASSIC_FOUND=1)
+        message(STATUS "Likely using classic zlib")
+    endif()
+endif()
+
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
     ${_qt_package}::Core
     ${_qt_package}::Gui
