@@ -36,6 +36,20 @@ cmake -S . -B build-qt5 -DQT_DEFAULT_MAJOR_VERSION=5
 cmake --build build-qt5
 ```
 
+## Building RPMs in Docker
+
+Use the helper script to produce SRPMs/Binary RPMs for both Rocky Linux 9 (Qt 5) and AlmaLinux 10 (Qt 6). The source tarball is rebuilt from the current workspace (including uncommitted changes) each time you run it, honoring the patterns listed in `.gitignore` for what to exclude:
+
+```bash
+scripts/build-rpm-in-docker.sh
+```
+
+Requirements:
+- Docker installed locally
+- Internet access for the images to install build dependencies (dnf builddep)
+
+Artifacts are copied into `rpm-dist/el9` and `rpm-dist/el10`, each containing `RPMS` and `SRPMS` folders.
+
 ## Licensing
 
 This project is licensed under the **GNU Lesser General Public License v3.0 (LGPLv3)**.
