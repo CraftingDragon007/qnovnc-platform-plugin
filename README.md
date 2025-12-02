@@ -7,6 +7,22 @@ based on the original Qt VNC QPA plugin.
 - Allows you to listen on a custom host (not only 0.0.0.0) (example: `QT_QPA_PLATFORM="novnc:size=1078x1106:depth=16:port=5911:host=127.0.0.1"`)
 - Prevents segfaults when the user is destroying and recreating a lot of windows.
 - Zlib compression support
+- Optional client update timing diagnostics via `QNOVNC_DEBUG_REFRESH`
+
+## Debugging
+
+To inspect the refresh cadence seen by connected noVNC clients, enable the client
+update timing logger:
+
+```bash
+QNOVNC_DEBUG_REFRESH=1 QT_QPA_PLATFORM=novnc ...
+```
+
+While enabled the plugin emits a log line per connected client every time an encoded
+framebuffer update is sent. Each line looks like `Client[<id>] updates: ...` and reports
+the average/last interval between the updates along with the corresponding time spent in
+the encoder. The statistics are aggregated over a one‑second window; you can change that
+interval through `QNOVNC_DEBUG_REFRESH_WINDOW_MS` (milliseconds).
 
 ## Building
 

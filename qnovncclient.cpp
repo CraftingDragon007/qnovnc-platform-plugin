@@ -8,6 +8,8 @@
 
 #include <qpa/qwindowsysteminterface.h>
 #include <QtGui/qguiapplication.h>
+#include <QtCore/QElapsedTimer>
+#include <atomic>
 
 #ifdef Q_OS_WIN
 #include <winsock2.h>
@@ -16,6 +18,10 @@
 #endif
 
 QT_BEGIN_NAMESPACE
+
+namespace {
+std::atomic<int> s_nextClientId{0};
+}
 
 QNoVncClient::QNoVncClient(QWebSocket *clientSocket, QNoVncServer *server)
     : QObject(server)
@@ -36,9 +42,15 @@ QNoVncClient::QNoVncClient(QWebSocket *clientSocket, QNoVncServer *server)
     , m_swapBytes(false)
 #endif
     , m_protocolVersion(V3_3)
+    , m_clientId(++s_nextClientId)
 {
     connect(m_clientSocket,SIGNAL(readyRead()),this,SLOT(readClient()));
     connect(m_clientSocket->socket(),SIGNAL(disconnected()),this,SLOT(discardClient()));
+
+    m_debugTimingEnabled = qEnvironmentVariableIntValue("QNOVNC_DEBUG_REFRESH") == 1;
+    const int requestedWindow = qEnvironmentVariableIntValue("QNOVNC_DEBUG_REFRESH_WINDOW_MS");
+    if (requestedWindow > 0)
+        m_debugWindowMs = requestedWindow;
 
     // send protocol version
     const char *proto = "RFB 003.003\n";
@@ -405,8 +417,15 @@ void QNoVncClient::checkUpdate()
     }
 #endif
     if (!m_dirtyRegion.isEmpty()) {
+        qint64 encodeDurationNs = 0;
+        QElapsedTimer encodeTimer;
+        if (m_debugTimingEnabled)
+            encodeTimer.start();
         if (m_encoder)
             m_encoder->write();
+        if (m_debugTimingEnabled)
+            encodeDurationNs = encodeTimer.nsecsElapsed();
+        recordClientStats(encodeDurationNs);
         m_wantUpdate = false;
         m_dirtyRegion = QRegion();
     }
@@ -428,6 +447,60 @@ bool QNoVncClient::event(QEvent *event)
         return true;
     }
     return QObject::event(event);
+}
+
+void QNoVncClient::recordClientStats(qint64 encodeDurationNs)
+{
+    if (!m_debugTimingEnabled)
+        return;
+
+    if (!m_updateTimersPrimed) {
+        m_updateIntervalTimer.start();
+        m_updateWindowTimer.start();
+        m_updateFrames = 0;
+        m_updateAccumIntervalNs = 0;
+        m_updateAccumEncodeNs = 0;
+        m_updateLastIntervalNs = 0;
+        m_updateLastEncodeNs = encodeDurationNs;
+        m_updateTimersPrimed = true;
+        return;
+    }
+
+    const qint64 intervalNs = m_updateIntervalTimer.nsecsElapsed();
+    m_updateIntervalTimer.restart();
+    m_updateLastIntervalNs = intervalNs;
+    m_updateLastEncodeNs = encodeDurationNs;
+
+    ++m_updateFrames;
+    m_updateAccumIntervalNs += intervalNs;
+    m_updateAccumEncodeNs += encodeDurationNs;
+
+    if (m_updateWindowTimer.elapsed() < m_debugWindowMs)
+        return;
+
+    m_updateWindowTimer.restart();
+    const qreal avgIntervalMs = m_updateFrames > 0
+            ?  m_updateAccumIntervalNs / (1'000'000.0 * qreal(m_updateFrames))
+            : 0.0;
+    const qreal avgFps = avgIntervalMs > 0.0 ? 1000.0 / avgIntervalMs : 0.0;
+    const qreal lastIntervalMs = m_updateLastIntervalNs / 1'000'000.0;
+    const qreal avgEncodeMs = m_updateFrames > 0
+            ?  m_updateAccumEncodeNs / (1'000'000.0 * qreal(m_updateFrames))
+            : 0.0;
+    const qreal lastEncodeMs = m_updateLastEncodeNs / 1'000'000.0;
+
+   qWarning().nospace()
+        << "Client[" << m_clientId << "] updates: avg interval "
+        << QString::number(avgIntervalMs, 'f', 2)
+        << " ms (" << QString::number(avgFps, 'f', 2) << " fps)"
+        << ", last interval " << QString::number(lastIntervalMs, 'f', 2) << " ms"
+        << ", avg encode " << QString::number(avgEncodeMs, 'f', 2) << " ms"
+        << ", last encode " << QString::number(lastEncodeMs, 'f', 2) << " ms"
+        << ", frames=" << m_updateFrames;
+
+    m_updateFrames = 0;
+    m_updateAccumIntervalNs = 0;
+    m_updateAccumEncodeNs = 0;
 }
 
 void QNoVncClient::setPixelFormat()

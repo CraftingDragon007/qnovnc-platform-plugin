@@ -57,4 +57,3 @@ public:
 QT_END_NAMESPACE
 
 #endif // QNoVncScreen_H
-

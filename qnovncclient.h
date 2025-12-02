@@ -4,8 +4,7 @@
 #ifndef QVNCCLIENT_H
 #define QVNCCLIENT_H
 
-#include <QObject>
-#include <QWebSocket>
+#include <QtCore/QElapsedTimer>
 
 #include "qnovnc_p.h"
 #include "qwebsocketdevice.h"
@@ -79,6 +78,7 @@ private:
     void keyEvent();
     void clientCutText();
     bool pixelConversionNeeded() const;
+    void recordClientStats(qint64 encodeDurationNs);
 
     QNoVncServer *m_server;
     QWebSocketDevice *m_clientSocket;
@@ -109,6 +109,18 @@ private:
 #endif
     QRegion m_dirtyRegion;
     ProtocolVersion m_protocolVersion;
+    const int m_clientId;
+
+    bool m_debugTimingEnabled = false;
+    int m_debugWindowMs = 1000;
+    bool m_updateTimersPrimed = false;
+    QElapsedTimer m_updateIntervalTimer;
+    QElapsedTimer m_updateWindowTimer;
+    qint64 m_updateFrames = 0;
+    qint64 m_updateAccumIntervalNs = 0;
+    qint64 m_updateAccumEncodeNs = 0;
+    qint64 m_updateLastIntervalNs = 0;
+    qint64 m_updateLastEncodeNs = 0;
 };
 
 QT_END_NAMESPACE
