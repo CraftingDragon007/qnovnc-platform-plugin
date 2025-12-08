@@ -52,6 +52,9 @@ public:
 #if QT_CONFIG(cursor)
     QNoVncClientCursor *clientCursor = nullptr;
 #endif
+
+private:
+    QImage m_prevScreenImage; // Shadow buffer for previous frame
 };
 
 QT_END_NAMESPACE

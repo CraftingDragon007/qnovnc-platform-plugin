@@ -89,6 +89,8 @@ set(QNOVNC_SOURCES
     qnovncscreen.cpp qnovncscreen.h
     qwebsocketdevice.h
     novnc.json
+        qnovncwindow.cpp
+        qnovncwindow.h
 )
 
 if(_qt_major EQUAL 6)

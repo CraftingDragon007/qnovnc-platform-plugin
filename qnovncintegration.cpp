@@ -3,6 +3,7 @@
 
 #include "qnovncintegration.h"
 #include "qnovncscreen.h"
+#include "qnovncwindow.h"
 #include "qnovnc_p.h"
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
@@ -102,7 +103,7 @@ QPlatformBackingStore *QNoVncIntegration::createPlatformBackingStore(QWindow *wi
 
 QPlatformWindow *QNoVncIntegration::createPlatformWindow(QWindow *window) const
 {
-    return new QFbWindow(window);
+    return new QNoVncWindow(window);
 }
 
 QAbstractEventDispatcher *QNoVncIntegration::createEventDispatcher() const

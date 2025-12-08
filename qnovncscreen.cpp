@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include "qnovncscreen.h"
+
+#include <QtFbSupport/private/qfbbackingstore_p.h>
+
 #include "qnovnc_p.h"
+#include "qnovncwindow.h"
 #include <QtFbSupport/private/qfbwindow_p.h>
 #include <QtFbSupport/private/qfbcursor_p.h>
 
@@ -35,7 +39,7 @@ bool QNoVncScreen::initialize()
     const QRegularExpression depthRx(QStringLiteral("depth=(\\d+)"));
 
     mGeometry = QRect(0, 0, 1024, 768);
-    mFormat = QImage::Format_ARGB32_Premultiplied;
+    mFormat = QImage::Format_RGBA8888;
     mDepth = 32;
     mPhysicalSize = QSizeF(mGeometry.width()/96.*25.4, mGeometry.height()/96.*25.4);
 
@@ -99,14 +103,110 @@ QRegion QNoVncScreen::doRedraw()
             window->window()->setVisible(false);
         }
     }
-    QRegion touched = QFbScreen::doRedraw();
 
-    if (touched.isEmpty())
-        return touched;
-    dirtyRegion += touched;
+    const QPoint screenOffset = mGeometry.topLeft();
+    QRegion touchedRegion;
+
+    if (mCursor && mCursor->isDirty() && mCursor->isOnScreen()) {
+        const QRect lastCursor = mCursor->dirtyRect();
+        mRepaintRegion += lastCursor;
+    }
+    if (mRepaintRegion.isEmpty() && (!mCursor || !mCursor->isDirty()))
+        return touchedRegion;
+
+    QPainter painter(&mScreenImage);
+
+    const QRect screenRect = mGeometry.translated(-screenOffset);
+    for (QRect rect : mRepaintRegion) {
+        rect = rect.intersected(screenRect);
+        if (rect.isEmpty())
+            continue;
+
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.fillRect(rect, mScreenImage.hasAlphaChannel() ? Qt::transparent : Qt::black);
+
+        for (qsizetype layerIndex = mWindowStack.size() - 1; layerIndex != -1; layerIndex--) {
+            if (!mWindowStack[layerIndex]->window()->isVisible())
+                continue;
+
+            const QRect windowRect = mWindowStack[layerIndex]->geometry().translated(-screenOffset);
+            const QRect windowIntersect = rect.translated(-windowRect.left(), -windowRect.top());
+            if (QFbBackingStore *backingStore = mWindowStack[layerIndex]->backingStore()) {
+                backingStore->lock();
+                painter.drawImage(rect, backingStore->image(), windowIntersect);
+                backingStore->unlock();
+            }
+        }
+    }
+
+    if (mCursor && (mCursor->isDirty() || mRepaintRegion.intersects(mCursor->lastPainted()))) {
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+        touchedRegion += mCursor->drawCursor(painter);
+    }
+    touchedRegion += mRepaintRegion;
+
+    QRegion realChanges;
+
+    if (m_prevScreenImage.size() != mScreenImage.size() ||
+        m_prevScreenImage.format() != mScreenImage.format())
+    {
+        m_prevScreenImage = mScreenImage.copy();
+        realChanges = touchedRegion;
+    }
+    else
+    {
+        const int depth = mScreenImage.depth() / 8;
+        const qsizetype bytesPerLine = mScreenImage.bytesPerLine();
+        const uchar *currBase = mScreenImage.bits();
+        const uchar *prevBase = m_prevScreenImage.bits();
+
+        const int TILE_SIZE = 64;
+
+        for (const QRect &largeRect : touchedRegion) {
+
+            // Subdivide the large rect into small tiles
+            for (int y = largeRect.y(); y <= largeRect.bottom(); y += TILE_SIZE) {
+                for (int x = largeRect.x(); x <= largeRect.right(); x += TILE_SIZE) {
+
+                    const int w = qMin(TILE_SIZE, largeRect.right() - x + 1);
+                    const int h = qMin(TILE_SIZE, largeRect.bottom() - y + 1);
+
+                    bool tileChanged = false;
+                    for (int row = 0; row < h; ++row) {
+                        const int lineOffset = ((y + row) * bytesPerLine) + (x * depth);
+                        // Compare one scanline of the tile
+                        if (memcmp(currBase + lineOffset, prevBase + lineOffset, w * depth) != 0) {
+                            tileChanged = true;
+                            break; // Stop checking this tile, it's dirty
+                        }
+                    }
+
+                    if (tileChanged) {
+                        realChanges += QRect(x, y, w, h);
+                    }
+                }
+            }
+        }
+
+        if (!touchedRegion.isEmpty()) {
+            QPainter shadowPainter(&m_prevScreenImage);
+            shadowPainter.setCompositionMode(QPainter::CompositionMode_Source);
+            for (const QRect &r : touchedRegion) {
+                shadowPainter.drawImage(r, mScreenImage, r);
+            }
+        }
+    }
+
+    touchedRegion = realChanges;
+
+    mRepaintRegion = QRegion();
+
+    if (touchedRegion.isEmpty())
+        return touchedRegion;
+    dirtyRegion += touchedRegion;
 
     vncServer->setDirty();
-    return touched;
+    return touchedRegion;
 }
 
 
