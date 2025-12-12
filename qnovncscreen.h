@@ -48,6 +48,7 @@ public:
     QNoVncDirtyMap *dirty = nullptr;
     QRegion dirtyRegion;
     int refreshRate = 30;
+    bool m_readonly = false;
     QNoVncServer *vncServer = nullptr;
 #if QT_CONFIG(cursor)
     QNoVncClientCursor *clientCursor = nullptr;

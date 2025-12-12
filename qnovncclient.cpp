@@ -641,6 +641,10 @@ void QNoVncClient::pointerEvent()
     static int buttonState = Qt::NoButton;
     if (ev.read(m_clientSocket)) {
         const QPointF pos = m_server->screen()->geometry().topLeft() + QPoint(ev.x, ev.y);
+        if (m_server->screen()->m_readonly) {
+            m_handleMsg = false;
+            return;
+        }
         int buttonStateChange = buttonState ^ int(ev.buttons);
         QEvent::Type type = QEvent::MouseMove;
         if (int(ev.buttons) > buttonState)
@@ -659,6 +663,10 @@ void QNoVncClient::keyEvent()
     QRfbKeyEvent ev;
 
     if (ev.read(m_clientSocket)) {
+        if (m_server->screen()->m_readonly) {
+            m_handleMsg = false;
+            return;
+        }
         if (ev.keycode == Qt::Key_Shift)
             m_keymod = ev.down ? m_keymod | Qt::ShiftModifier :
                                  m_keymod & ~Qt::ShiftModifier;

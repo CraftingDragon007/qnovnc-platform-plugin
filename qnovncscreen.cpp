@@ -51,6 +51,8 @@ bool QNoVncScreen::initialize()
             mGeometry.setSize(QSize(match.captured(1).toInt(), match.captured(2).toInt()));
         } else if (arg.contains(depthRx, &match)) {
             mDepth = match.captured(1).toInt();
+        } else if (arg.contains(QStringLiteral("readonly"))) {
+            m_readonly = true;
         }
     }
 
