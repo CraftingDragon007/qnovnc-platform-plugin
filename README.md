@@ -8,6 +8,7 @@ based on the original Qt VNC QPA plugin.
 - Prevents segfaults when the user is destroying and recreating a lot of windows.
 - Zlib compression support
 - Optional client update timing diagnostics via `QNOVNC_DEBUG_REFRESH`
+- Added windows support (only qt6)
 
 ## Debugging
 
@@ -27,11 +28,13 @@ interval through `QNOVNC_DEBUG_REFRESH_WINDOW_MS` (milliseconds).
 ## Building
 
 ```bash
-# Qt 6 build (default)
+# Qt 6 build (default) 
+# (Windows: When using Ninja make sure to set -DCMAKE_BUILD_TYPE=Release when generating the build files)
 cmake -S . -B build
 cmake --build build
 
 # Qt 5 build (if Qt 6 is unavailable or explicitly desired)
+# Not supported on windows!
 cmake -S . -B build-qt5 -DQT_DEFAULT_MAJOR_VERSION=5
 cmake --build build-qt5
 ```

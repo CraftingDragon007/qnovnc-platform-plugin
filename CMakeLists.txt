@@ -79,7 +79,9 @@ else()
     set(_qt_major 5)
 endif()
 
+if(UNIX)
 find_package(ZLIB REQUIRED)
+endif()
 
 set(QNOVNC_SOURCES
     main.cpp
@@ -103,6 +105,7 @@ else()
     )
 endif()
 
+if(UNIX)
 if(ZLIB_FOUND)
     message(STATUS "Found ZLIB_VERSION: ${ZLIB_VERSION}")
     if("${ZLIB_VERSION}" MATCHES "ng")
@@ -113,8 +116,25 @@ if(ZLIB_FOUND)
         message(STATUS "Likely using classic zlib")
     endif()
 endif()
+endif()
+
+if (WIN32)
+	if(Qt6_FOUND)
+		get_target_property(_qt_include_dir Qt6::Core INTERFACE_INCLUDE_DIRECTORIES)
+		target_include_directories(${PROJECT_NAME} PRIVATE "${_qt_include_dir}/QtZlib")
+	endif()
+endif()
+#target_include_directories(${PROJECT_NAME} PRIVATE "C:\\Qt\\Qt-6.10.0\\include\\QtZlib")
 
 
+if (WIN32)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    ${_qt_package}::Core
+    ${_qt_package}::Gui
+    ${_qt_package}::Network
+    ${_qt_package}::WebSockets
+)
+else()
 target_link_libraries(${PROJECT_NAME} PRIVATE
     ${_qt_package}::Core
     ${_qt_package}::Gui
@@ -122,6 +142,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${_qt_package}::WebSockets
     ZLIB::ZLIB
 )
+endif()
 
 foreach(_qt_private_component IN LISTS _qt_private_components)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${_qt_package}::${_qt_private_component})

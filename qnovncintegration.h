@@ -39,8 +39,10 @@ private:
     mutable QNoVncServer *m_server;
     QNoVncScreen *m_primaryScreen;
     QPlatformInputContext *m_inputContext;
-    QScopedPointer<QPlatformFontDatabase> m_fontDb;
+    QPlatformFontDatabase* m_fontDb;
+#ifndef Q_OS_WIN
     mutable QScopedPointer<QPlatformServices> m_services;
+#endif
     QScopedPointer<QPlatformNativeInterface> m_nativeInterface;
 };
 

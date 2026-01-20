@@ -22,6 +22,10 @@
 #include <utility>
 #include <limits>
 
+#ifdef max
+#undef max
+#endif
+
 QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcVnc, "qt.qpa.vnc");

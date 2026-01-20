@@ -4,6 +4,7 @@
 #ifndef QVNC_P_H
 #define QVNC_P_H
 
+
 #include "qnovncscreen.h"
 
 #include <QtCore/QLoggingCategory>
@@ -221,6 +222,7 @@ private:
     bool m_streamInitialized = false;
 };
 
+/*
 template <class SRC> class QRfbHextileEncoder;
 
 template <class SRC>
@@ -361,7 +363,7 @@ private:
     friend class QRfbSingleColorHextile<SRC>;
     friend class QRfbDualColorHextile<SRC>;
     friend class QRfbMultiColorHextile<SRC>;
-};
+};*/
 
 #if QT_CONFIG(cursor)
 class QNoVncClientCursor : public QPlatformCursor

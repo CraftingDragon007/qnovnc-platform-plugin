@@ -7,9 +7,29 @@
 #include "qnovnc_p.h"
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-#include <QtGui/private/qgenericunixfontdatabase_p.h>
-#include <QtGui/private/qdesktopunixservices_p.h>
+#if defined(Q_OS_WIN)
+#  include <QtGui/private/qwindowsfontdatabase_p.h>
+#  if QT_CONFIG(freetype)
+#    include <QtGui/private/qwindowsfontdatabase_ft_p.h>
+#  endif
+#elif defined(Q_OS_DARWIN)
+#  include <QtGui/private/qcoretextfontdatabase_p.h>
+#endif
+
+#if QT_CONFIG(fontconfig)
+#  include <QtGui/private/qgenericunixfontdatabase_p.h>
+#endif
+
+#if QT_CONFIG(freetype) && !defined(Q_OS_WIN)
+#include <QtGui/private/qfontengine_ft_p.h>
+#include <QtGui/private/qfreetypefontdatabase_p.h>
+#endif
+
+#if !defined(Q_OS_WIN)
 #include <QtGui/private/qgenericunixeventdispatcher_p.h>
+#else
+#include <QtCore/private/qeventdispatcher_win_p.h>
+#endif
 #else
 #include <QtFontDatabaseSupport/private/qgenericunixfontdatabase_p.h>
 #include <QtServiceSupport/private/qgenericunixservices_p.h>
@@ -28,16 +48,21 @@
 
 #include <QtCore/QRegularExpression>
 
+#ifndef Q_OS_WIN
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 using QUnixPlatformServices = QDesktopUnixServices;
+using QWindowsPlatformServices = QWindowsServices;
 #else
 using QUnixPlatformServices = QGenericUnixServices;
+#endif
 #endif
 
 QT_BEGIN_NAMESPACE
 
+class QCoreTextFontEngine;
+
+
 QNoVncIntegration::QNoVncIntegration(const QStringList &paramList)
-    : m_fontDb(new QGenericUnixFontDatabase)
 {
     const QRegularExpression portRx(QStringLiteral("port=(\\d+)"));
     quint16 port = 5900;
@@ -57,6 +82,21 @@ QNoVncIntegration::QNoVncIntegration(const QStringList &paramList)
     m_primaryScreen = new QNoVncScreen(paramList);
     m_server = new QNoVncServer(m_primaryScreen, port, host);
     m_primaryScreen->vncServer = m_server;
+
+#if defined(Q_OS_WIN)
+    m_fontDb = new QWindowsFontDatabase();
+
+#elif defined(Q_OS_DARWIN)
+    m_fontDb = new QCoreTextFontDatabaseEngineFactory<QCoreTextFontEngine>;
+#endif
+
+    if (!m_fontDb) {
+#if QT_CONFIG(fontconfig)
+        m_fontDb = new QGenericUnixFontDatabase;
+#else
+        m_fontDb = QPlatformIntegration::fontDatabase();
+#endif
+    }
 }
 
 QNoVncIntegration::~QNoVncIntegration()
@@ -108,7 +148,11 @@ QPlatformWindow *QNoVncIntegration::createPlatformWindow(QWindow *window) const
 
 QAbstractEventDispatcher *QNoVncIntegration::createEventDispatcher() const
 {
+#ifdef Q_OS_WIN
+    return new QEventDispatcherWin32;
+#else
     return createUnixEventDispatcher();
+#endif
 }
 
 QList<QPlatformScreen *> QNoVncIntegration::screens() const
@@ -120,15 +164,19 @@ QList<QPlatformScreen *> QNoVncIntegration::screens() const
 
 QPlatformFontDatabase *QNoVncIntegration::fontDatabase() const
 {
-    return m_fontDb.data();
+    return m_fontDb;
 }
 
 QPlatformServices *QNoVncIntegration::services() const
 {
+#ifndef Q_OS_WIN
     if (m_services.isNull())
         m_services.reset(new QUnixPlatformServices);
 
     return m_services.data();
+#else
+    return nullptr;
+#endif
 }
 
 QPlatformNativeInterface *QNoVncIntegration::nativeInterface() const
