@@ -20,13 +20,9 @@
 #  include <QtGui/private/qgenericunixfontdatabase_p.h>
 #endif
 
-#if QT_CONFIG(freetype) && !defined(Q_OS_WIN)
-#include <QtGui/private/qfontengine_ft_p.h>
-#include <QtGui/private/qfreetypefontdatabase_p.h>
-#endif
-
 #if !defined(Q_OS_WIN)
 #include <QtGui/private/qgenericunixeventdispatcher_p.h>
+#include <QtGui/private/qdesktopunixservices_p.h>
 #else
 #include <QtCore/private/qeventdispatcher_win_p.h>
 #endif
@@ -51,7 +47,6 @@
 #ifndef Q_OS_WIN
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 using QUnixPlatformServices = QDesktopUnixServices;
-using QWindowsPlatformServices = QWindowsServices;
 #else
 using QUnixPlatformServices = QGenericUnixServices;
 #endif
