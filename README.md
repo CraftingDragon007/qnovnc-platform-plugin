@@ -55,7 +55,9 @@ Artifacts are copied into `rpm-dist/el9` and `rpm-dist/el10`, each containing `R
 
 ## Licensing
 
-This project is licensed under the **GNU Lesser General Public License v3.0 (LGPLv3)**.
+This project is licensed under the following licenses:
+
+SPDX-License-Identifier: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 For the full license text, please refer to the `LICENSE` file in this repository.
 
