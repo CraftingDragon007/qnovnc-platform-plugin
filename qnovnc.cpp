@@ -3,6 +3,7 @@
 #include "qnovnc_p.h"
 #include "qnovncscreen.h"
 #include "qnovncclient.h"
+#include "qnovncframecache.h"
 #include <QtWebSockets/QWebSocketServer>
 #include <QtWebSockets/QWebSocket>
 #include <qendian.h>
@@ -28,7 +29,7 @@
 
 QT_BEGIN_NAMESPACE
 
-Q_LOGGING_CATEGORY(lcVnc, "qt.qpa.vnc");
+Q_LOGGING_CATEGORY(lcVnc, "qt.qpa.novnc");
 
 QNoVncDirtyMap::QNoVncDirtyMap(QNoVncScreen *screen)
     : screen(screen), bytesPerPixel(0), numDirty(0)
@@ -427,25 +428,8 @@ void QRfbRawEncoder::write()
     QIODevice *socket = client->clientSocket();
 
     const int bytesPerPixel = client->clientBytesPerPixel();
-
-    // create a region from the dirty rects and send the region's merged rects.
-    // ### use the tile map again
     QRegion rgn = client->dirtyRegion();
     qCDebug(lcVnc) << "QRfbRawEncoder::write()" << rgn;
-//    if (map) {
-//        for (int y = 0; y < map->mapHeight; ++y) {
-//            for (int x = 0; x < map->mapWidth; ++x) {
-//                if (!map->dirty(x, y))
-//                    continue;
-//                rgn += QRect(x * MAP_TILE_SIZE, y * MAP_TILE_SIZE,
-//                             MAP_TILE_SIZE, MAP_TILE_SIZE);
-//                map->setClean(x, y);
-//            }
-//        }
-
-//        rgn &= QRect(0, 0, server->screen()->geometry().width(),
-//                     server->screen()->geometry().height());
-//    }
 
     QImage screenImage = client->server()->screenImage();
 
@@ -481,26 +465,14 @@ void QRfbRawEncoder::write()
         const quint32 encoding = htonl(0); // raw encoding
         socket->write(reinterpret_cast<const char *>(&encoding), sizeof(encoding));
 
-        qsizetype linestep = screenImage.bytesPerLine();
-        const uchar *screendata = screenImage.scanLine(rect.y)
-                                  + rect.x * screenImage.depth() / 8;
-
         if (client->doPixelConversion()) {
-            const int bufferSize = rect.w * rect.h * bytesPerPixel;
-            if (bufferSize > buffer.size())
-                buffer.resize(bufferSize);
-
-            // convert pixels
-            char *b = buffer.data();
-            const int bstep = rect.w * bytesPerPixel;
-            const int depth = screenImage.depth();
-            for (int i = 0; i < rect.h; ++i) {
-                client->convertPixels(b, reinterpret_cast<const char*>(screendata), rect.w, depth);
-                screendata += linestep;
-                b += bstep;
-            }
-            socket->write(buffer.constData(), bufferSize);
+            QByteArray pixels = client->server()->frameCache()->getConvertedPixels(
+                screenImage, tileRect, client->pixelFormat());
+            socket->write(pixels.constData(), pixels.size());
         } else {
+            qsizetype linestep = screenImage.bytesPerLine();
+            const uchar *screendata = screenImage.scanLine(rect.y)
+                                      + rect.x * screenImage.depth() / 8;
             for (int i = 0; i < rect.h; ++i) {
                 socket->write(reinterpret_cast<const char*>(screendata), rect.w * bytesPerPixel);
                 screendata += linestep;
@@ -623,33 +595,28 @@ void QRfbZlibEncoder::write()
 
         const qsizetype rowBytes = qsizetype(rect.w) * bytesPerPixel;
         const qsizetype rawSize = rowBytes * rect.h;
-        if (rowBytes <= 0 || rawSize <= 0) {
-            const quint32 encoding = htonl(0);
-            socket->write(reinterpret_cast<const char *>(&encoding), sizeof(encoding));
-            continue;
-        }
-
-        ensurePixelBuffer(rawSize);
-        char *dst = m_pixelBuffer.data();
-        const qsizetype linestep = screenImage.bytesPerLine();
-        const uchar *screendata = screenImage.scanLine(rect.y)
-                                  + rect.x * screenImage.depth() / 8;
-
+        
+        QByteArray rawData;
         if (needConversion) {
-            const qsizetype bstep = rowBytes;
-            for (int i = 0; i < rect.h; ++i) {
-                client->convertPixels(dst, reinterpret_cast<const char *>(screendata), rect.w, screenDepth);
-                screendata += linestep;
-                dst += bstep;
-            }
+            rawData = client->server()->frameCache()->getConvertedPixels(
+                screenImage, tileRect, client->pixelFormat());
         } else {
+            ensurePixelBuffer(rawSize);
+            char *dst = m_pixelBuffer.data();
+            const qsizetype linestep = screenImage.bytesPerLine();
+            const uchar *screendata = screenImage.scanLine(rect.y)
+                                      + rect.x * screenImage.depth() / 8;
             for (int i = 0; i < rect.h; ++i) {
                 memcpy(dst, screendata, rowBytes);
                 screendata += linestep;
                 dst += rowBytes;
             }
+            rawData = m_pixelBuffer.left(rawSize); // Copy for deflate
         }
 
+        // We MUST use a per-client buffer for compression because deflate is stateful
+        m_pixelBuffer = rawData; 
+        
         qsizetype compressedSize = 0;
         bool useZlib = compressCurrentBuffer(rawSize, &compressedSize);
         if (useZlib) {
@@ -759,6 +726,7 @@ QNoVncServer::QNoVncServer(QNoVncScreen *screen, quint16 port, QString host)
     : QNoVnc_screen(screen)
     , m_port(port)
     , m_host(std::move(host))
+    , m_frameCache(new QNoVncFrameCache(this))
 {
     QMetaObject::invokeMethod(this, "init", Qt::QueuedConnection);
 }
@@ -799,6 +767,7 @@ QNoVncServer::~QNoVncServer()
 
 void QNoVncServer::setDirty()
 {
+    m_frameCache->invalidate();
     for (auto client : std::as_const(clients))
         client->setDirty(QNoVnc_screen->dirtyRegion);
 

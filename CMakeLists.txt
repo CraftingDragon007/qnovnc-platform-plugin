@@ -89,6 +89,7 @@ set(QNOVNC_SOURCES
     qnovncclient.cpp qnovncclient.h
     qnovncintegration.cpp qnovncintegration.h
     qnovncscreen.cpp qnovncscreen.h
+    qnovncframecache.cpp qnovncframecache.h
     qwebsocketdevice.h
     novnc.json
         qnovncwindow.cpp

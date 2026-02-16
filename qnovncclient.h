@@ -45,6 +45,7 @@ public:
 
     void convertPixels(char *dst, const char *src, int count, int depth) const;
     inline bool doPixelConversion() const { return m_needConversion; }
+    const QRfbPixelFormat& pixelFormat() const { return m_pixelFormat; }
 
 signals:
 

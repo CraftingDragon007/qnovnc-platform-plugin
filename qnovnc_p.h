@@ -26,6 +26,7 @@ class QNoVncScreen;
 class QNoVncServer;
 class QNoVncClientCursor;
 class QNoVncClient;
+class QNoVncFrameCache;
 
 // This fits with the VNC hextile messages
 #define MAP_TILE_SIZE 16
@@ -401,6 +402,7 @@ public:
     inline QNoVncScreen* screen() const { return QNoVnc_screen; }
     inline QNoVncDirtyMap* dirtyMap() const { return QNoVnc_screen->dirty; }
     QImage screenImage() const;
+    QNoVncFrameCache *frameCache() const { return m_frameCache; }
     void discardClient(QNoVncClient *client);
 
 private slots:
@@ -413,6 +415,7 @@ private:
     QNoVncScreen *QNoVnc_screen;
     quint16 m_port;
     QString m_host;
+    QNoVncFrameCache *m_frameCache;
 
     QTimer* m_visualizeUpdateTimer;
 };
