@@ -58,6 +58,10 @@ class QCoreTextFontEngine;
 
 
 QNoVncIntegration::QNoVncIntegration(const QStringList &paramList)
+    : m_server(nullptr)
+    , m_primaryScreen(nullptr)
+    , m_inputContext(nullptr)
+    , m_fontDb(nullptr)
 {
     const QRegularExpression portRx(QStringLiteral("port=(\\d+)"));
     quint16 port = 5900;
@@ -87,6 +91,8 @@ QNoVncIntegration::QNoVncIntegration(const QStringList &paramList)
 
     if (!m_fontDb) {
 #if QT_CONFIG(fontconfig)
+        m_fontDb = new QGenericUnixFontDatabase;
+#elif defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
         m_fontDb = new QGenericUnixFontDatabase;
 #else
         m_fontDb = QPlatformIntegration::fontDatabase();

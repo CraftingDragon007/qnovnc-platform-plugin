@@ -20,7 +20,12 @@ struct QNoVncEncodingConfig
     bool operator==(const QNoVncEncodingConfig &other) const;
 };
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+uint qHash(const QNoVncEncodingConfig &config, uint seed = 0);
+uint qHash(const QRect &rect, uint seed = 0);
+#else
 size_t qHash(const QNoVncEncodingConfig &config, size_t seed = 0);
+#endif
 
 /**
  * @brief Holds pre-converted (but NOT compressed) pixel data

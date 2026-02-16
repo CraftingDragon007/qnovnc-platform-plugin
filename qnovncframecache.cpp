@@ -10,20 +10,29 @@
 
 QT_BEGIN_NAMESPACE
 
-bool QNoVncEncodingConfig::operator==(const QNoVncEncodingConfig &other) const
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+uint qHash(const QRect &rect, uint seed)
 {
-    return pixelFormat.bitsPerPixel == other.pixelFormat.bitsPerPixel &&
-           pixelFormat.depth == other.pixelFormat.depth &&
-           pixelFormat.bigEndian == other.pixelFormat.bigEndian &&
-           pixelFormat.redShift == other.pixelFormat.redShift &&
-           pixelFormat.greenShift == other.pixelFormat.greenShift &&
-           pixelFormat.blueShift == other.pixelFormat.blueShift &&
-           pixelFormat.redBits == other.pixelFormat.redBits &&
-           pixelFormat.greenBits == other.pixelFormat.greenBits &&
-           pixelFormat.blueBits == other.pixelFormat.blueBits;
+    return qHash(rect.x(), seed) ^ qHash(rect.y(), seed) ^ qHash(rect.width(), seed) ^ qHash(rect.height(), seed);
 }
 
-size_t qHash(const QNoVncEncodingConfig &config, const size_t seed)
+uint qHash(const QNoVncEncodingConfig &config, uint seed)
+{
+    const auto &pf = config.pixelFormat;
+    // Simple and fast hash combination for the pixel format fields
+    unsigned int h = pf.bitsPerPixel;
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.depth);
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.bigEndian);
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.redShift);
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.greenShift);
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.blueShift);
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.redBits);
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.greenBits);
+    h = (h << 5) + h ^ static_cast<unsigned int>(pf.blueBits);
+    return h ^ seed;
+}
+#else
+size_t qHash(const QNoVncEncodingConfig &config, size_t seed)
 {
     const auto &pf = config.pixelFormat;
     // Simple and fast hash combination for the pixel format fields
@@ -37,6 +46,20 @@ size_t qHash(const QNoVncEncodingConfig &config, const size_t seed)
     h = (h << 5) + h ^ static_cast<unsigned int>(pf.greenBits);
     h = (h << 5) + h ^ static_cast<unsigned int>(pf.blueBits);
     return static_cast<size_t>(h) ^ seed;
+}
+#endif
+
+bool QNoVncEncodingConfig::operator==(const QNoVncEncodingConfig &other) const
+{
+    return pixelFormat.bitsPerPixel == other.pixelFormat.bitsPerPixel &&
+           pixelFormat.depth == other.pixelFormat.depth &&
+           pixelFormat.bigEndian == other.pixelFormat.bigEndian &&
+           pixelFormat.redShift == other.pixelFormat.redShift &&
+           pixelFormat.greenShift == other.pixelFormat.greenShift &&
+           pixelFormat.blueShift == other.pixelFormat.blueShift &&
+           pixelFormat.redBits == other.pixelFormat.redBits &&
+           pixelFormat.greenBits == other.pixelFormat.greenBits &&
+           pixelFormat.blueBits == other.pixelFormat.blueBits;
 }
 
 QNoVncFrameCache::QNoVncFrameCache(QObject *parent) : QObject(parent) {}
