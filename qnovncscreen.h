@@ -43,6 +43,18 @@ public:
 
     QStringList mArgs;
 
+    [[nodiscard]] QDpi logicalDpi() const override {
+        return QDpi(dpiX, dpiY);
+    }
+
+    [[nodiscard]] QSizeF physicalSize() const override {
+        constexpr qreal kDpi = 96.0;
+        const QSize pixelSize = geometry().size();
+        return QSizeF(pixelSize.width() / kDpi * 25.4,
+                      pixelSize.height() / kDpi * 25.4);
+    }
+
+
     qreal dpiX = 96;
     qreal dpiY = 96;
     QNoVncDirtyMap *dirty = nullptr;
