@@ -21,11 +21,13 @@ QT_BEGIN_NAMESPACE
 QNoVncScreen::QNoVncScreen(const QStringList &args)
     : mArgs(args)
 {
-    initialize();
+    // Initialization is performed by QNoVncIntegration::initialize().
 }
 
 QNoVncScreen::~QNoVncScreen()
 {
+    delete dirty;
+    dirty = nullptr;
 #if QT_CONFIG(cursor)
     if (clientCursor)
         delete clientCursor;
@@ -34,6 +36,11 @@ QNoVncScreen::~QNoVncScreen()
 
 bool QNoVncScreen::initialize()
 {
+    if (dirty) {
+        delete dirty;
+        dirty = nullptr;
+    }
+
     const QRegularExpression sizeRx(QStringLiteral("size=(\\d+)x(\\d+)"));
     const QRegularExpression mmSizeRx(QStringLiteral("mmsize=(?<width>(\\d*\\.)?\\d+)x(?<height>(\\d*\\.)?\\d+)"));
     const QRegularExpression depthRx(QStringLiteral("depth=(\\d+)"));

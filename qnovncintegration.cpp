@@ -104,6 +104,8 @@ QNoVncIntegration::~QNoVncIntegration()
 {
     delete m_server;
     QWindowSystemInterface::handleScreenRemoved(m_primaryScreen);
+    delete m_primaryScreen;
+    m_primaryScreen = nullptr;
 }
 
 void QNoVncIntegration::initialize()
