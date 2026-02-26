@@ -39,6 +39,7 @@
 
 #include <QtGui/private/qguiapplication_p.h>
 #include <qpa/qplatforminputcontextfactory_p.h>
+#include <qpa/qplatforminputcontext.h>
 #include <private/qinputdevicemanager_p_p.h>
 #include <qpa/qwindowsysteminterface.h>
 
@@ -104,8 +105,22 @@ QNoVncIntegration::~QNoVncIntegration()
 {
     delete m_server;
     QWindowSystemInterface::handleScreenRemoved(m_primaryScreen);
-    delete m_primaryScreen;
-    m_primaryScreen = nullptr;
+
+    if (m_inputContext) {
+        delete m_inputContext;
+        m_inputContext = nullptr;
+    }
+
+#if !defined(Q_OS_WIN)
+    if (m_fontDb && m_fontDb != QPlatformIntegration::fontDatabase()) {
+        delete m_fontDb;
+    }
+#else
+    if (m_fontDb) {
+        delete m_fontDb;
+    }
+#endif
+    m_fontDb = nullptr;
 }
 
 void QNoVncIntegration::initialize()

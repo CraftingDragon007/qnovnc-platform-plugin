@@ -762,7 +762,13 @@ void QNoVncServer::init()
 
 QNoVncServer::~QNoVncServer()
 {
+    for (const auto client : std::as_const(clients)) {
+        disconnect(client, nullptr, this, nullptr);
+        disconnect(this, nullptr, client, nullptr);
+    }
+
     qDeleteAll(clients);
+    clients.clear();
 }
 
 void QNoVncServer::setDirty()
