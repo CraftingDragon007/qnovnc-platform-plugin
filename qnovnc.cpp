@@ -290,8 +290,10 @@ void QRfbPixelFormat::write(QIODevice *s)
 void QRfbServerInit::setName(const char *n)
 {
     delete[] name;
-    name = new char [strlen(n) + 1];
-    strcpy(name, n);
+    QByteArray ba = QByteArrayView(n).toByteArray();
+
+    name = new char[ba.size() + 1];
+    qstrcpy(name, ba.data());
 }
 
 void QRfbServerInit::read(QIODevice *s)
