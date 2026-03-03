@@ -45,21 +45,30 @@ class QNoVncFrameCache : public QObject
 public:
     explicit QNoVncFrameCache(QObject *parent = nullptr);
     
-    // Get converted pixels for a specific rect and format
     QByteArray getConvertedPixels(
         const QImage &screenImage,
         const QRect &rect,
         const QRfbPixelFormat &format);
 
     void invalidate();
+    void clear();
 
 private:
     void convertPixels(char *dst, const char *src, int count, int screendepth, const QRfbPixelFormat &pixelFormat) const;
 
     mutable QMutex m_mutex;
     quint64 m_currentFrameId = 0;
-    // Map: EncodingConfig -> (Rect -> Tile)
-    QHash<QNoVncEncodingConfig, QHash<QRect, QNoVncCachedTile>> m_cache;
+    struct FormatCache {
+        QHash<QRect, QNoVncCachedTile> tiles;
+        quint64 lastUsed = 0;
+    };
+    QHash<QNoVncEncodingConfig, FormatCache> m_cache;
+    quint64 m_timer = 0;
+
+    static constexpr int MaxCachedFormats = 10;
+    static constexpr int MaxTilesPerFormat = 1000;
+
+    void trimCache();
 };
 
 QT_END_NAMESPACE

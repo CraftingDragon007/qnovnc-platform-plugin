@@ -68,6 +68,12 @@ void QNoVncFrameCache::invalidate()
 {
     QMutexLocker locker(&m_mutex);
     m_currentFrameId++;
+    clear();
+}
+
+void QNoVncFrameCache::clear()
+{
+    m_cache.clear();
 }
 
 QByteArray QNoVncFrameCache::getConvertedPixels(
@@ -79,10 +85,22 @@ QByteArray QNoVncFrameCache::getConvertedPixels(
     
     QNoVncEncodingConfig config { format };
     auto &formatCache = m_cache[config];
-    auto &cachedTile = formatCache[rect];
+    formatCache.lastUsed = ++m_timer;
+
+    auto &cachedTile = formatCache.tiles[rect];
     
     if (cachedTile.frameId == m_currentFrameId && !cachedTile.rawData.isEmpty()) {
         return cachedTile.rawData;
+    }
+
+    if (formatCache.tiles.size() > MaxTilesPerFormat) {
+        formatCache.tiles.clear();
+        return getConvertedPixels(screenImage, rect, format);
+    }
+
+    if (m_cache.size() > MaxCachedFormats) {
+        trimCache();
+        return getConvertedPixels(screenImage, rect, format);
     }
     
     const int bytesPerPixel = (format.bitsPerPixel + 7) / 8;
@@ -102,6 +120,28 @@ QByteArray QNoVncFrameCache::getConvertedPixels(
     
     cachedTile.frameId = m_currentFrameId;
     return cachedTile.rawData;
+}
+
+void QNoVncFrameCache::trimCache()
+{
+    if (m_cache.size() <= MaxCachedFormats)
+        return;
+
+    QNoVncEncodingConfig lruKey;
+    quint64 oldest = std::numeric_limits<quint64>::max();
+    bool found = false;
+
+    for (auto it = m_cache.constBegin(); it != m_cache.constEnd(); ++it) {
+        if (it.value().lastUsed < oldest) {
+            oldest = it.value().lastUsed;
+            lruKey = it.key();
+            found = true;
+        }
+    }
+
+    if (found) {
+        m_cache.remove(lruKey);
+    }
 }
 
 void QNoVncFrameCache::convertPixels(char *dst, const char *src, const int count, const int screendepth, const QRfbPixelFormat &pixelFormat) const
