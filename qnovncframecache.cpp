@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include "qnovncframecache.h"
-#include <QtCore/QSysInfo>
-#include <QtCore/QDebug>
-#include <QtCore/QMutexLocker>
-#include <QtCore/QtEndian>
-#include <QtCore/QtGlobal>
+#include <QSysInfo>
+#include <QDebug>
+#include <QMutexLocker>
+#include <QtEndian>
+#include <QtGlobal>
 
 QT_BEGIN_NAMESPACE
 
@@ -18,34 +18,31 @@ uint qHash(const QRect &rect, uint seed)
 
 uint qHash(const QNoVncEncodingConfig &config, uint seed)
 {
-    const auto &pf = config.pixelFormat;
-    // Simple and fast hash combination for the pixel format fields
-    unsigned int h = pf.bitsPerPixel;
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.depth);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.bigEndian);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.redShift);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.greenShift);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.blueShift);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.redBits);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.greenBits);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.blueBits);
-    return h ^ seed;
+    const auto& pf = config.pixelFormat;
+    return qHash(pf.bitsPerPixel, seed) ^
+        qHash(pf.depth, seed) ^
+        qHash(pf.bigEndian, seed) ^
+        qHash(pf.redShift, seed) ^
+        qHash(pf.greenShift, seed) ^
+        qHash(pf.blueShift, seed) ^
+        qHash(pf.redBits, seed) ^
+        qHash(pf.greenBits, seed) ^
+        qHash(pf.blueBits, seed);
 }
 #else
-size_t qHash(const QNoVncEncodingConfig &config, size_t seed)
+size_t qHash(const QNoVncEncodingConfig& config, size_t seed)
 {
-    const auto &pf = config.pixelFormat;
-    // Simple and fast hash combination for the pixel format fields
-    unsigned int h = pf.bitsPerPixel;
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.depth);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.bigEndian);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.redShift);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.greenShift);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.blueShift);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.redBits);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.greenBits);
-    h = (h << 5) + h ^ static_cast<unsigned int>(pf.blueBits);
-    return static_cast<size_t>(h) ^ seed;
+    const auto& pf = config.pixelFormat;
+    return qHashMulti(seed,
+                      pf.bitsPerPixel,
+                      pf.depth,
+                      pf.bigEndian,
+                      pf.redShift,
+                      pf.greenShift,
+                      pf.blueShift,
+                      pf.redBits,
+                      pf.greenBits,
+                      pf.blueBits);
 }
 #endif
 

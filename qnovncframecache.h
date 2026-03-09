@@ -4,10 +4,7 @@
 #ifndef QNOVNCFRAMECACHE_H
 #define QNOVNCFRAMECACHE_H
 
-#include <QtCore/QByteArray>
-#include <QtCore/QHash>
 #include <QtCore/QMutex>
-#include <QtCore/QRect>
 
 #include "qnovnc_p.h"
 
