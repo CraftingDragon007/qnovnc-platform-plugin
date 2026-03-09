@@ -1,4 +1,6 @@
+// Copyright (C) 2026 Julian Houba <info@craftingdragon.ch>
 // Copyright (C) 2017 The Qt Company Ltd.
+// This file is a derivative of the qvnc platform plugin from Qt Base
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include "qnovncintegration.h"
@@ -128,7 +130,7 @@ void QNoVncIntegration::initialize()
     if (m_primaryScreen->initialize())
         QWindowSystemInterface::handleScreenAdded(m_primaryScreen);
     else
-        qWarning("vnc: Failed to initialize screen");
+        qWarning("novnc: Failed to initialize screen");
 
     m_inputContext = QPlatformInputContextFactory::create();
 

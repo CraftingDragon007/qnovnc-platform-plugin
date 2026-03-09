@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Julian Houba <info@craftingdragon.ch>
+// SPDX-License-Identifier: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
 // Lightweight QIODevice adapter for QWebSocket binary frames
 // Bridges stream-style RFB reads/writes onto message-based WebSocket API.
 #pragma once

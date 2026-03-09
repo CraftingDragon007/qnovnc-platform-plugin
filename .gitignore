@@ -74,6 +74,7 @@ Testing/
 *.user
 *.user.*
 CMakeLists.txt.user
+.qtcreator/
 
 # OS files
 .DS_Store

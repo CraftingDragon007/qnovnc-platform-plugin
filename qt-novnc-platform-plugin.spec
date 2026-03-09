@@ -13,10 +13,10 @@
 
 Name:           qt-novnc-platform-plugin
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Qt QPA platform plugin providing noVNC server support
 
-License:        LGPLv3+
+License:        LGPL-3.0-only or GPL-2.0-only or GPL-3.0-only
 URL:            https://github.com/CraftingDragon007/qt-novnc-platform-plugin
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
@@ -59,9 +59,14 @@ version 10 defaulting to Qt 5 while Fedora and newer releases use Qt 6.
 
 %files
 %license LICENSE
+%license LICENSE.GPL-2.0-only
+%license LICENSE.GPL-3.0-only
+%license LICENSE.LGPL-3.0-only
 %doc README.md
 %{qt_plugin_dir}/platforms/libqnovnc.so
 
 %changelog
-* Wed Mar 12 2025 CraftingDragon007 <info@craftingdragon.ch> - 1.0.0-1
+* Mon Mar 09 2026 Julian Houba <info@craftingdragon.ch> - 1.0.1-2
+- Updated spec file to include correct license identifiers and files
+* Wed Nov 25 2025 Julian Houba <info@craftingdragon.ch> - 1.0.0-1
 - Initial package for qt-novnc-platform-plugin
