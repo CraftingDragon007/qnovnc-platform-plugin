@@ -139,9 +139,9 @@ void QNoVncDirtyMapOptimized<T>::setDirty(int tileX, int tileY, bool force)
     }
 }
 
-template class QNoVncDirtyMapOptimized<unsigned char>;
-template class QNoVncDirtyMapOptimized<unsigned short>;
-template class QNoVncDirtyMapOptimized<unsigned int>;
+template class QNoVncDirtyMapOptimized<quint8>;
+template class QNoVncDirtyMapOptimized<quint16>;
+template class QNoVncDirtyMapOptimized<quint32>;
 
 static const struct {
     int keysym;
