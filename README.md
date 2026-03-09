@@ -8,7 +8,7 @@ based on the original Qt VNC QPA plugin.
 - Prevents segfaults when the user is destroying and recreating a lot of windows.
 - Zlib compression support
 - Optional client update timing diagnostics via `QNOVNC_DEBUG_REFRESH`
-- Added windows support (only qt6)
+- Added windows support (only qt6, currenctly readonly)
 
 ## Debugging
 
@@ -59,16 +59,16 @@ This project is licensed under the following licenses:
 
 SPDX-License-Identifier: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
-For the full license text, please refer to the `LICENSE` file in this repository.
+For the full license text, please refer to the `LICENSE` files in this repository (`LICENSE.GPL-2.0-only`, `LICENSE.GPL-3.0-only` and `LICENSE.LGPL-3.0-only`).
 
 ### Original Work Attribution
 
 This software is a derivative work of the Qt 6 VNC QPA plugin,
 which is part of the QtBase module. The original Qt VNC QPA plugin code is
-Copyright (C) 2025 The Qt Company Ltd., and is available under the LGPLv3 / GPLv2 / GPLv3
+Copyright (C) 2016/2017 The Qt Company Ltd., and is available under the LGPLv3 / GPLv2 / GPLv3
 or commercial license from The Qt Company.
 Original source code available at [https://code.qt.io/cgit/qt/qtbase.git/tree/src/plugins/platforms/vnc](https://code.qt.io/cgit/qt/qtbase.git/tree/src/plugins/platforms/vnc).
 
 ### Copyright
-
-Copyright (c) 2025, CraftingDragon007 <info@craftingdragon.ch>
+Copyright (C) 2026, CraftingDragon007 <info@craftingdragon.ch> <br>
+Copyright (C) 2016/2017 The Qt Company Ltd for the original Qt VNC QPA plugin

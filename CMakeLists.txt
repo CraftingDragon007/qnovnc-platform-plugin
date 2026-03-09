@@ -1,3 +1,10 @@
+# Copyright (C) 2026 Julian Houba <info@craftingdragon.ch>
+# SPDX-License-Identifier: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+
+#####################################################################
+## QNoVNC Platform Plugin:
+#####################################################################
+
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(qnovnc VERSION 1.0.0 LANGUAGES CXX)
 
