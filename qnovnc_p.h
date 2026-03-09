@@ -121,11 +121,9 @@ public:
 class QRfbServerInit
 {
 public:
-    QRfbServerInit() { name = nullptr; }
-    ~QRfbServerInit() { delete[] name; }
 
-    int size() const { return QRfbPixelFormat::size() + 8 + strlen(name); }
-    void setName(const char *n);
+    [[nodiscard]] qsizetype size() const { return QRfbPixelFormat::size() + 8 + name.toUtf8().size(); }
+    void setName(QString name);
 
     void read(QIODevice *s);
     void write(QIODevice *s);
@@ -133,7 +131,7 @@ public:
     quint16 width;
     quint16 height;
     QRfbPixelFormat format;
-    char *name;
+    QString name;
 };
 
 class QRfbSetEncodings

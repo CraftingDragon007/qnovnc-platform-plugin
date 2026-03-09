@@ -344,7 +344,7 @@ void QNoVncClient::readClient()
                 }
                 sim.width = m_server->screen()->geometry().width();
                 sim.height = m_server->screen()->geometry().height();
-                sim.setName("Qt for Embedded Linux VNC Server");
+                sim.setName("Qt NoVNC Server");
                 sim.write(m_clientSocket);
                 m_pixelFormat = format;
                 m_sameEndian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) == !!m_pixelFormat.bigEndian;
@@ -359,7 +359,7 @@ void QNoVncClient::readClient()
         case Connected:
             do {
                 if (!m_handleMsg) {
-                    m_clientSocket->read((char *)&m_msgType, 1);
+                    m_clientSocket->read(reinterpret_cast<char*>(&m_msgType), 1);
                     m_handleMsg = true;
                 }
                 if (m_handleMsg) {

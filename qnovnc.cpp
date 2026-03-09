@@ -287,13 +287,9 @@ void QRfbPixelFormat::write(QIODevice *s)
 }
 
 
-void QRfbServerInit::setName(const char *n)
+void QRfbServerInit::setName(QString name)
 {
-    delete[] name;
-    QByteArray ba = QByteArrayView(n).toByteArray();
-
-    name = new char[ba.size() + 1];
-    qstrcpy(name, ba.data());
+    this->name = std::move(name);
 }
 
 void QRfbServerInit::read(QIODevice *s)
@@ -308,9 +304,9 @@ void QRfbServerInit::read(QIODevice *s)
     s->read(reinterpret_cast<char *>(&len), 4);
     len = ntohl(len);
 
-    name = new char [len + 1];
-    s->read(name, len);
-    name[len] = '\0';
+    QByteArray nameData(len, Qt::Uninitialized);
+    s->read(nameData.data(), len);
+    name = QString::fromLatin1(nameData);
 }
 
 void QRfbServerInit::write(QIODevice *s)
@@ -320,10 +316,11 @@ void QRfbServerInit::write(QIODevice *s)
     t = htons(height);
     s->write(reinterpret_cast<char *>(&t), 2);
     format.write(s);
-    quint32 len = static_cast<quint32>(strlen(name));
+    const QByteArray nameData = name.toLatin1();
+    auto len = static_cast<quint32>(nameData.size());
     len = htonl(len);
     s->write(reinterpret_cast<char *>(&len), 4);
-    s->write(name, static_cast<qint64>(strlen(name)));
+    s->write(nameData, nameData.size());
 }
 
 bool QRfbSetEncodings::read(QIODevice *s)
