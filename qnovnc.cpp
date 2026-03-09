@@ -808,4 +808,4 @@ inline QImage QNoVncServer::screenImage() const
 
 QT_END_NAMESPACE
 
-//#include "moc_qvnc_p.cpp"
+//#include "moc_qnovnc_p.cpp"

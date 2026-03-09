@@ -1,8 +1,8 @@
 // Copyright (C) 2016 The Qt Company Ltd.
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
-#ifndef QVNCINTEGRATION_H
-#define QVNCINTEGRATION_H
+#ifndef QNOVNCINTEGRATION_H
+#define QNOVNCINTEGRATION_H
 
 #include <qpa/qplatformintegration.h>
 #include <qpa/qplatformnativeinterface.h>
@@ -48,4 +48,4 @@ private:
 
 QT_END_NAMESPACE
 
-#endif // QVNCINTEGRATION_H
+#endif // QNOVNCINTEGRATION_H

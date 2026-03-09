@@ -75,7 +75,7 @@ bool QNoVncScreen::initialize()
         dirty = new QNoVncDirtyMapOptimized<quint8>(this);
         break;
     default:
-        qWarning("QVNCScreen::initDevice: No support for screen depth %d",
+        qWarning("QNoVNCScreen::initDevice: No support for screen depth %d",
                  depth());
         dirty = nullptr;
         return false;
@@ -95,13 +95,13 @@ QRegion QNoVncScreen::doRedraw()
         const QFbWindow *window = mWindowStack[i];
         if (window == nullptr)
         {
-            qWarning("QVNCScreen::doRedraw: QFbWindow is null");
+            qWarning("QNoVNCScreen::doRedraw: QFbWindow is null");
             mWindowStack.removeAt(i);
             i--;
             continue;
         }
         if (window->window() == nullptr) {
-            qWarning("QVNCScreen::doRedraw: QFbWindow->window() is null");
+            qWarning("QNoVNCScreen::doRedraw: QFbWindow->window() is null");
             mWindowStack.removeAt(i);
             i--;
             continue;
@@ -310,4 +310,4 @@ QFbScreen::Flags QNoVncScreen::flags() const
 
 QT_END_NAMESPACE
 
-//#include "moc_qvncscreen.cpp"
+//#include "mocqnovncscreen.cpp"

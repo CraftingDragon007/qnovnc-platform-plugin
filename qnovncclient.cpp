@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include "qnovncclient.h"
-#include "qnovncclient.h"
 
 #include <QWebSocket>
 
@@ -141,7 +140,7 @@ void QNoVncClient::convertPixels(char *dst, const char *src, int count, int scre
         }
         default: {
             r = g = b = 0;
-            qWarning("QVNCServer: don't support %dbpp display", screendepth);
+            qWarning("QNoVNCServer: don't support %dbpp display", screendepth);
             return;
         }
         }
@@ -338,13 +337,14 @@ void QNoVncClient::readClient()
                     break;
 
                 default:
-                    qWarning("QVNC cannot drive depth %d", m_server->screen()->depth());
+                    qWarning("QNoVNC cannot drive depth %d", m_server->screen()->depth());
                     discardClient();
                     return;
                 }
                 sim.width = m_server->screen()->geometry().width();
                 sim.height = m_server->screen()->geometry().height();
-                sim.setName("Qt NoVNC Server");
+
+                sim.setName(QString("Qt NoVNC Server on %1").arg(QSysInfo::productType()));
                 sim.write(m_clientSocket);
                 m_pixelFormat = format;
                 m_sameEndian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) == !!m_pixelFormat.bigEndian;
@@ -737,4 +737,4 @@ bool QNoVncClient::pixelConversionNeeded() const
 
 QT_END_NAMESPACE
 
-//#include "moc_qvncclient.cpp"
+//#include "moc_qnovncclient.cpp"
