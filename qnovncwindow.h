@@ -1,15 +1,15 @@
 // Copyright (C) 2026 Julian Houba <info@craftingdragon.ch>
 // SPDX-License-Identifier: LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
-#ifndef QNOVNC_QNOVNCWINDOW_H
-#define QNOVNC_QNOVNCWINDOW_H
+#ifndef QNOVNCWINDOW_H
+#define QNOVNCWINDOW_H
 #include <private/qfbwindow_p.h>
 
 
 class QNoVncWindow : public QFbWindow
 {
 public:
-    QNoVncWindow(QWindow *window);
+    explicit QNoVncWindow(QWindow *window);
 
     QImage* image();
 
@@ -18,4 +18,4 @@ private:
 };
 
 
-#endif //QNOVNC_QNOVNCWINDOW_H
+#endif //QNOVNCWINDOW_H

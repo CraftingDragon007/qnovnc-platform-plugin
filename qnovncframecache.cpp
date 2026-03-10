@@ -79,19 +79,19 @@ QByteArray QNoVncFrameCache::getConvertedPixels(
     const QRfbPixelFormat &format)
 {
     QMutexLocker locker(&m_mutex);
-    
-    QNoVncEncodingConfig config { format };
-    auto &formatCache = m_cache[config];
-    formatCache.lastUsed = ++m_timer;
 
-    auto &cachedTile = formatCache.tiles[rect];
+    const QNoVncEncodingConfig config { format };
+    auto & [tiles, lastUsed] = m_cache[config];
+    lastUsed = ++m_timer;
+
+    auto &cachedTile = tiles[rect];
     
     if (cachedTile.frameId == m_currentFrameId && !cachedTile.rawData.isEmpty()) {
         return cachedTile.rawData;
     }
 
-    if (formatCache.tiles.size() > MaxTilesPerFormat) {
-        formatCache.tiles.clear();
+    if (tiles.size() > MaxTilesPerFormat) {
+        tiles.clear();
         return getConvertedPixels(screenImage, rect, format);
     }
 
@@ -106,7 +106,7 @@ QByteArray QNoVncFrameCache::getConvertedPixels(
     
     char *destination = cachedTile.rawData.data();
     const int screenDepth = screenImage.depth();
-    const int screenStride = screenImage.bytesPerLine();
+    const int screenStride = static_cast<int>(screenImage.bytesPerLine());
     const uchar *sourceLine = screenImage.scanLine(rect.y()) + rect.x() * screenDepth / 8;
     
     for (int i = 0; i < rect.height(); ++i) {
@@ -141,47 +141,59 @@ void QNoVncFrameCache::trimCache()
     }
 }
 
-void QNoVncFrameCache::convertPixels(char *dst, const char *src, const int count, const int screendepth, const QRfbPixelFormat &pixelFormat) const
+void QNoVncFrameCache::convertPixels(char *dst, const char *src, const int count, const int screendepth, const QRfbPixelFormat &pixelFormat)
 {
-    const int bytesPerPixel = (pixelFormat.bitsPerPixel + 7) / 8;
-    const bool sameEndian = QSysInfo::ByteOrder == QSysInfo::BigEndian == !!pixelFormat.bigEndian;
+    const int bpp = pixelFormat.bitsPerPixel;
+    const int bytesPerPixel = (bpp + 7) / 8;
+    const bool sameEndian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) == (pixelFormat.bigEndian != 0);
 
     for (int i = 0; i < count; ++i) {
-        int r, g, b;
+        quint32 r = 0, g = 0, b = 0;
+
         switch (screendepth) {
         case 32: {
-            const quint32 p = *reinterpret_cast<const quint32*>(src);
-            r = p >> 16 & 0xff; g = p >> 8 & 0xff; b = p & 0xff;
-            src += 4; break;
+            quint32 p;
+            memcpy(&p, src, 4);
+            r = (p >> 16) & 0xff;
+            g = (p >> 8) & 0xff;
+            b = p & 0xff;
+            src += 4;
+            break;
         }
         case 16: {
-            const quint16 p = *reinterpret_cast<const quint16*>(src);
-            r = (p >> 11 & 0x1f) << 3; g = (p >> 5 & 0x3f) << 2; b = (p & 0x1f) << 3;
-            src += 2; break;
+            quint16 p;
+            memcpy(&p, src, 2);
+            r = ((p >> 11) & 0x1f) << 3;
+            g = ((p >> 5) & 0x3f) << 2;
+            b = (p & 0x1f) << 3;
+            src += 2;
+            break;
         }
-        default: r = g = b = 0; break;
+        default:
+            src += (screendepth / 8);
+            break;
         }
 
-        r >>= 8 - pixelFormat.redBits;
-        g >>= 8 - pixelFormat.greenBits;
-        b >>= 8 - pixelFormat.blueBits;
+        r >>= (8 - pixelFormat.redBits);
+        g >>= (8 - pixelFormat.greenBits);
+        b >>= (8 - pixelFormat.blueBits);
 
-        int pixel = r << pixelFormat.redShift | g << pixelFormat.greenShift | b << pixelFormat.blueShift;
+        quint32 pixel = (r << pixelFormat.redShift) |
+                         (g << pixelFormat.greenShift) |
+                         (b << pixelFormat.blueShift);
 
-        if (sameEndian || pixelFormat.bitsPerPixel == 8) {
-            memcpy(dst, &pixel, bytesPerPixel);
-        } else {
-            if (pixelFormat.bitsPerPixel == 16) {
-                pixel = (pixel & 0xff) << 8 | (pixel & 0xff00) >> 8;
-            } else if (pixelFormat.bitsPerPixel == 32) {
-                const quint32 p = static_cast<quint32>(pixel);
-                pixel = static_cast<int>((p & 0xff000000) >> 24 |
-                                         (p & 0x00ff0000) >> 8  |
-                                         (p & 0x0000ff00) << 8  |
-                                         (p & 0x000000ff) << 24);
+        if (!sameEndian && bpp > 8) {
+            if (bpp == 16) {
+                pixel = ((pixel & 0xff) << 8) | ((pixel & 0xff00) >> 8);
+            } else if (bpp == 32) {
+                pixel = ((pixel & 0xff000000) >> 24) |
+                        ((pixel & 0x00ff0000) >> 8)  |
+                        ((pixel & 0x0000ff00) << 8)  |
+                        ((pixel & 0x000000ff) << 24);
             }
-            memcpy(dst, &pixel, bytesPerPixel);
         }
+
+        memcpy(dst, &pixel, bytesPerPixel);
         dst += bytesPerPixel;
     }
 }

@@ -3,6 +3,10 @@
 
 // Lightweight QIODevice adapter for QWebSocket binary frames
 // Bridges stream-style RFB reads/writes onto message-based WebSocket API.
+
+#ifndef QWEBSOCKETDEVICE_H
+#define QWEBSOCKETDEVICE_H
+
 #pragma once
 
 #include <QIODevice>
@@ -31,29 +35,29 @@ public:
 
     ~QWebSocketDevice() override = default;
 
-    QWebSocket *socket() const { return m_socket; }
+    [[nodiscard]] QWebSocket *socket() const { return m_socket; }
 
-    bool isSequential() const override { return true; }
+    [[nodiscard]] bool isSequential() const override { return true; }
 
-    qint64 bytesAvailable() const override {
+    [[nodiscard]] qint64 bytesAvailable() const override {
         return m_readBuffer.size() + QIODevice::bytesAvailable();
     }
 
 protected:
-    qint64 readData(char *data, qint64 maxSize) override {
+    qint64 readData(char *data, const qint64 maxSize) override {
         const qint64 n = qMin<qint64>(maxSize, m_readBuffer.size());
         if (n <= 0)
             return 0;
-        memcpy(data, m_readBuffer.constData(), size_t(n));
-        m_readBuffer.remove(0, int(n));
+        memcpy(data, m_readBuffer.constData(), static_cast<size_t>(n));
+        m_readBuffer.remove(0, static_cast<int>(n));
         return n;
     }
 
-    qint64 writeData(const char *data, qint64 maxSize) override {
+    qint64 writeData(const char *data, const qint64 maxSize) override {
         // Send each write as a binary WebSocket frame
         if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState)
             return -1;
-        m_socket->sendBinaryMessage(QByteArray(data, int(maxSize)));
+        m_socket->sendBinaryMessage(QByteArray(data, static_cast<int>(maxSize)));
         return maxSize;
     }
 
@@ -80,3 +84,5 @@ private:
     QWebSocket *m_socket;
     QByteArray m_readBuffer;
 };
+
+#endif //QWEBSOCKETDEVICE_H

@@ -30,24 +30,24 @@ public:
     };
 
     explicit QNoVncClient(QWebSocket *clientSocket, QNoVncServer *server);
-    ~QNoVncClient();
-    QWebSocketDevice* clientSocket() const;
-    QNoVncServer *server() const { return m_server; }
+    ~QNoVncClient() override;
+    [[nodiscard]] QWebSocketDevice* clientSocket() const;
+    [[nodiscard]] QNoVncServer *server() const { return m_server; }
 
     void setDirty(const QRegion &region);
     void setDirtyCursor() { m_dirtyCursor = true; scheduleUpdate(); }
-    QRegion dirtyRegion() const { return m_dirtyRegion; }
-    inline bool isConnected() const { return m_state == Connected; }
+    [[nodiscard]] QRegion dirtyRegion() const { return m_dirtyRegion; }
+    [[nodiscard]] inline bool isConnected() const { return m_state == Connected; }
 
-    inline int clientBytesPerPixel() const {
+    [[nodiscard]] inline int clientBytesPerPixel() const {
         return m_pixelFormat.bitsPerPixel > 0
                 ? (m_pixelFormat.bitsPerPixel + 7) / 8
                 : 0;
     }
 
     void convertPixels(char *dst, const char *src, int count, int depth) const;
-    inline bool doPixelConversion() const { return m_needConversion; }
-    const QRfbPixelFormat& pixelFormat() const { return m_pixelFormat; }
+    [[nodiscard]] inline bool doPixelConversion() const { return m_needConversion; }
+    [[nodiscard]] const QRfbPixelFormat& pixelFormat() const { return m_pixelFormat; }
 
 signals:
 
@@ -80,7 +80,7 @@ private:
     void pointerEvent();
     void keyEvent();
     void clientCutText();
-    bool pixelConversionNeeded() const;
+    [[nodiscard]] bool pixelConversionNeeded() const;
     void recordClientStats(qint64 encodeDurationNs);
 
     QNoVncServer *m_server;
@@ -95,7 +95,7 @@ private:
     bool m_sameEndian;
     bool m_needConversion;
     int m_encodingsPending;
-    int m_cutTextPending;
+    quint32 m_cutTextPending;
     uint m_supportCopyRect : 1;
     uint m_supportRRE : 1;
     uint m_supportCoRRE : 1;

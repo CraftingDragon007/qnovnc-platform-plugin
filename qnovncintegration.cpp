@@ -66,15 +66,15 @@ QNoVncIntegration::QNoVncIntegration(const QStringList &paramList)
     , m_inputContext(nullptr)
     , m_fontDb(nullptr)
 {
-    const QRegularExpression portRx(QStringLiteral("port=(\\d+)"));
+    static QRegularExpression portRx(QStringLiteral("port=(\\d+)"));
     quint16 port = 5900;
     for (const QString &arg : paramList) {
         QRegularExpressionMatch match;
         if (arg.contains(portRx, &match))
             port = match.captured(1).toInt();
     }
-    QString host = QStringLiteral("0.0.0.0");
-    const QRegularExpression hostRx(QStringLiteral("host=([^\\s]+)"));
+    auto host = QStringLiteral("0.0.0.0");
+    static QRegularExpression hostRx(QStringLiteral("host=([^\\s]+)"));
     for (const QString &arg : paramList) {
         QRegularExpressionMatch match;
         if (arg.contains(hostRx, &match))

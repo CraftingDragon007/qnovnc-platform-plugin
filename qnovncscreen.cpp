@@ -43,9 +43,9 @@ bool QNoVncScreen::initialize()
         dirty = nullptr;
     }
 
-    const QRegularExpression sizeRx(QStringLiteral("size=(\\d+)x(\\d+)"));
-    const QRegularExpression mmSizeRx(QStringLiteral("mmsize=(?<width>(\\d*\\.)?\\d+)x(?<height>(\\d*\\.)?\\d+)"));
-    const QRegularExpression depthRx(QStringLiteral("depth=(\\d+)"));
+    static QRegularExpression sizeRx(QStringLiteral("size=(\\d+)x(\\d+)"));
+    static QRegularExpression mmSizeRx(QStringLiteral("mmsize=(?<width>(\\d*\\.)?\\d+)x(?<height>(\\d*\\.)?\\d+)"));
+    static QRegularExpression depthRx(QStringLiteral("depth=(\\d+)"));
 
     mGeometry = QRect(0, 0, 1024, 768);
     mFormat = QImage::Format_RGBA8888;
@@ -171,9 +171,9 @@ QRegion QNoVncScreen::doRedraw()
         const uchar *currBase = mScreenImage.bits();
         const uchar *prevBase = m_prevScreenImage.bits();
 
-        const int TILE_SIZE = 64;
-
-        for (const QRect &largeRect : touchedRegion) {
+        for (const QRect &largeRect : touchedRegion)
+        {
+            constexpr int TILE_SIZE = 64;
 
             // Subdivide the large rect into small tiles
             for (int y = largeRect.y(); y <= largeRect.bottom(); y += TILE_SIZE) {
@@ -184,9 +184,8 @@ QRegion QNoVncScreen::doRedraw()
 
                     bool tileChanged = false;
                     for (int row = 0; row < h; ++row) {
-                        const int lineOffset = ((y + row) * bytesPerLine) + (x * depth);
                         // Compare one scanline of the tile
-                        if (memcmp(currBase + lineOffset, prevBase + lineOffset, w * depth) != 0) {
+                        if (const int lineOffset = ((y + row) * static_cast<int>(bytesPerLine)) + (x * depth); memcmp(currBase + lineOffset, prevBase + lineOffset, w * depth) != 0) {
                             tileChanged = true;
                             break; // Stop checking this tile, it's dirty
                         }
@@ -240,8 +239,7 @@ void QNoVncScreen::disableClientCursor(QNoVncClient *client)
     if (!clientCursor)
         return;
 
-    uint clientCount = clientCursor->removeClient(client);
-    if (clientCount == 0) {
+    if (const uint clientCount = clientCursor->removeClient(client); clientCount == 0) {
         delete clientCursor;
         clientCursor = nullptr;
 
@@ -264,7 +262,7 @@ QPlatformCursor *QNoVncScreen::cursor() const
 
 // grabWindow() grabs "from the screen" not from the backingstores.
 // In linuxfb's case it will also include the mouse cursor.
-QPixmap QNoVncScreen::grabWindow(WId wid, int x, int y, int width, int height) const
+QPixmap QNoVncScreen::grabWindow(const WId wid, const int x, const int y, int width, int height) const
 {
     if (!wid) {
         if (width < 0)
@@ -274,8 +272,7 @@ QPixmap QNoVncScreen::grabWindow(WId wid, int x, int y, int width, int height) c
         return QPixmap::fromImage(mScreenImage).copy(x, y, width, height);
     }
 
-    QFbWindow *window = windowForId(wid);
-    if (window) {
+    if (const QFbWindow *window = windowForId(wid)) {
         const QRect geom = window->geometry();
         if (width < 0)
             width = geom.width() - x;
@@ -286,7 +283,7 @@ QPixmap QNoVncScreen::grabWindow(WId wid, int x, int y, int width, int height) c
         return QPixmap::fromImage(mScreenImage).copy(rect);
     }
 
-    return QPixmap();
+    return {};
 }
 
 #if Q_BYTE_ORDER == Q_BIG_ENDIAN

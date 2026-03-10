@@ -18,8 +18,8 @@ class QNoVncServer;
 class QNoVncIntegration : public QPlatformIntegration, public QPlatformNativeInterface
 {
 public:
-    QNoVncIntegration(const QStringList &paramList);
-    ~QNoVncIntegration();
+    explicit QNoVncIntegration(const QStringList &paramList);
+    ~QNoVncIntegration() override;
 
     void initialize() override;
     bool hasCapability(QPlatformIntegration::Capability cap) const override;

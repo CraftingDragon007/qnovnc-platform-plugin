@@ -11,7 +11,6 @@
 
 #include <QtCore/QLoggingCategory>
 #include <QtCore/qbytearray.h>
-#include <QtCore/qvarlengtharray.h>
 #include <qpa/qplatformcursor.h>
 
 #include <QTimer>
@@ -36,12 +35,12 @@ class QNoVncFrameCache;
 class QNoVncDirtyMap
 {
 public:
-    QNoVncDirtyMap(QNoVncScreen *screen);
+    explicit QNoVncDirtyMap(QNoVncScreen *screen);
     virtual ~QNoVncDirtyMap();
 
     void reset();
-    bool dirty(int x, int y) const;
-    virtual void setDirty(int x, int y, bool force = false) = 0;
+    [[nodiscard]] bool dirty(int x, int y) const;
+    virtual void setDirty(int x, int y, bool force) = 0;
     void setClean(int x, int y);
 
     QNoVncScreen *screen;
@@ -63,28 +62,28 @@ template <class T>
 class QNoVncDirtyMapOptimized : public QNoVncDirtyMap
 {
 public:
-    QNoVncDirtyMapOptimized(QNoVncScreen *screen) : QNoVncDirtyMap(screen) {}
-    ~QNoVncDirtyMapOptimized() {}
+    explicit QNoVncDirtyMapOptimized(QNoVncScreen *screen) : QNoVncDirtyMap(screen) {}
+    ~QNoVncDirtyMapOptimized() override = default;
 
-    void setDirty(int x, int y, bool force = false) override;
+    void setDirty(int x, int y, bool force) override;
 };
 
 
 class QRfbRect
 {
 public:
-    QRfbRect() {}
-    QRfbRect(quint16 _x, quint16 _y, quint16 _w, quint16 _h) {
+    QRfbRect() = default;
+    QRfbRect(const quint16 _x, const quint16 _y, const quint16 _w, const quint16 _h) {
         x = _x; y = _y; w = _w; h = _h;
     }
 
     void read(QIODevice *s);
     void write(QIODevice *s) const;
 
-    quint16 x;
-    quint16 y;
-    quint16 w;
-    quint16 h;
+    quint16 x{};
+    quint16 y{};
+    quint16 w{};
+    quint16 h{};
 };
 
 class QRfbPixelFormat
@@ -106,7 +105,7 @@ public:
     static int size() { return 16; }
 
     void read(QIODevice *s);
-    void write(QIODevice *s);
+    void write(QIODevice *s) const;
 
     int bitsPerPixel;
     int depth;
@@ -128,7 +127,7 @@ public:
     void setName(QString name);
 
     void read(QIODevice *s);
-    void write(QIODevice *s);
+    void write(QIODevice *s) const;
 
     quint16 width;
     quint16 height;
@@ -149,7 +148,7 @@ class QRfbFrameBufferUpdateRequest
 public:
     bool read(QIODevice *s);
 
-    char incremental;
+    char incremental{};
     QRfbRect rect;
 };
 
@@ -169,8 +168,8 @@ public:
     bool read(QIODevice *s);
 
     Qt::MouseButtons buttons;
-    quint16 x;
-    quint16 y;
+    quint16 x{};
+    quint16 y{};
 };
 
 class QRfbClientCutText
@@ -184,8 +183,8 @@ public:
 class QRfbEncoder
 {
 public:
-    QRfbEncoder(QNoVncClient *s) : client(s) {}
-    virtual ~QRfbEncoder() {}
+    explicit QRfbEncoder(QNoVncClient *s) : client(s) {}
+    virtual ~QRfbEncoder() = default;
 
     virtual void write() = 0;
 
@@ -196,7 +195,7 @@ protected:
 class QRfbRawEncoder : public QRfbEncoder
 {
 public:
-    QRfbRawEncoder(QNoVncClient *s) : QRfbEncoder(s) {}
+    explicit QRfbRawEncoder(QNoVncClient *s) : QRfbEncoder(s) {}
 
     void write() override;
 
@@ -207,7 +206,7 @@ private:
 class QRfbZlibEncoder : public QRfbEncoder
 {
 public:
-    QRfbZlibEncoder(QNoVncClient *s);
+    explicit QRfbZlibEncoder(QNoVncClient *s);
     ~QRfbZlibEncoder() override;
 
     void write() override;
@@ -219,7 +218,7 @@ private:
 
     QByteArray m_pixelBuffer;
     QByteArray m_compressBuffer;
-    z_stream m_stream;
+    z_stream m_stream{};
     bool m_streamInitialized = false;
 };
 
@@ -228,9 +227,9 @@ class QNoVncClientCursor : public QPlatformCursor
 {
 public:
     QNoVncClientCursor();
-    ~QNoVncClientCursor();
+    ~QNoVncClientCursor() override;
 
-    void write(QNoVncClient *client) const;
+    void write(const QNoVncClient *client) const;
 
     void changeCursor(QCursor *widgetCursor, QWindow *window) override;
 
@@ -248,7 +247,7 @@ class QNoVncServer : public QObject
     Q_OBJECT
 public:
     explicit QNoVncServer(QNoVncScreen *screen, quint16 port = 5900, QString host = "0.0.0.0");
-    ~QNoVncServer();
+    ~QNoVncServer() override;
 
     enum ServerMsg { FramebufferUpdate = 0,
                      SetColourMapEntries = 1 };
@@ -256,10 +255,10 @@ public:
     void setDirty();
 
 
-    inline QNoVncScreen* screen() const { return QNoVnc_screen; }
-    inline QNoVncDirtyMap* dirtyMap() const { return QNoVnc_screen->dirty; }
-    QImage screenImage() const;
-    QNoVncFrameCache *frameCache() const { return m_frameCache; }
+    [[nodiscard]] inline QNoVncScreen* screen() const { return QNoVnc_screen; }
+    [[nodiscard]] inline QNoVncDirtyMap* dirtyMap() const { return QNoVnc_screen->dirty; }
+    [[nodiscard]] QImage screenImage() const;
+    [[nodiscard]] QNoVncFrameCache *frameCache() const { return m_frameCache; }
     void discardClient(QNoVncClient *client);
 
 private slots:
@@ -274,7 +273,7 @@ private:
     QString m_host;
     QNoVncFrameCache *m_frameCache;
 
-    QTimer* m_visualizeUpdateTimer;
+    QTimer* m_visualizeUpdateTimer{};
 };
 
 QT_END_NAMESPACE

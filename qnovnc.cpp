@@ -62,19 +62,19 @@ void QNoVncDirtyMap::reset()
     numDirty = numTiles;
 }
 
-inline bool QNoVncDirtyMap::dirty(int x, int y) const
+inline bool QNoVncDirtyMap::dirty(const int x, const int y) const
 {
     return map[y * mapWidth + x];
 }
 
-inline void QNoVncDirtyMap::setClean(int x, int y)
+inline void QNoVncDirtyMap::setClean(const int x, const int y)
 {
     map[y * mapWidth + x] = 0;
     --numDirty;
 }
 
 template <class T>
-void QNoVncDirtyMapOptimized<T>::setDirty(int tileX, int tileY, bool force)
+void QNoVncDirtyMapOptimized<T>::setDirty(const int tileX, const int tileY, bool force)
 {
     static bool alwaysForce = qEnvironmentVariableIsSet("QT_VNC_NO_COMPAREBUFFER");
     if (alwaysForce)
@@ -100,7 +100,7 @@ void QNoVncDirtyMapOptimized<T>::setDirty(int tileX, int tileY, bool force)
 
         if (doInlines) { // hw: memcmp/memcpy is inlined when using constants
             while (y) {
-                if (memcmp(old, scrn, sizeof(T) * MAP_TILE_SIZE)) {
+                if (memcmp(old, scrn, sizeof(T) * MAP_TILE_SIZE) != 0) {
                     changed = true;
                     break;
                 }
@@ -117,7 +117,7 @@ void QNoVncDirtyMapOptimized<T>::setDirty(int tileX, int tileY, bool force)
             }
         } else {
             while (y) {
-                if (memcmp(old, scrn, sizeof(T) * tileWidth)) {
+                if (memcmp(old, scrn, sizeof(T) * tileWidth) != 0) {
                     changed = true;
                     break;
                 }
@@ -135,8 +135,7 @@ void QNoVncDirtyMapOptimized<T>::setDirty(int tileX, int tileY, bool force)
         }
     }
 
-    const int mapIndex = tileY * mapWidth + tileX;
-    if ((force || changed) && !map[mapIndex]) {
+    if (const int mapIndex = tileY * mapWidth + tileX; (force || changed) && !map[mapIndex]) {
         map[mapIndex] = 1;
         ++numDirty;
     }
@@ -239,8 +238,8 @@ void QRfbRect::write(QIODevice *s) const
 
 void QRfbPixelFormat::read(QIODevice *s)
 {
-    char buf[16];
-    s->read(buf, 16);
+    unsigned char buf[16];
+    s->read(reinterpret_cast<char*>(buf), 16);
     bitsPerPixel = buf[0];
     depth = buf[1];
     bigEndian = buf[2];
@@ -263,9 +262,9 @@ void QRfbPixelFormat::read(QIODevice *s)
     blueShift = buf[12];
 }
 
-void QRfbPixelFormat::write(QIODevice *s)
+void QRfbPixelFormat::write(QIODevice *s) const
 {
-    char buf[16];
+    unsigned char buf[16];
     buf[0] = bitsPerPixel;
     buf[1] = depth;
     buf[2] = bigEndian;
@@ -286,7 +285,7 @@ void QRfbPixelFormat::write(QIODevice *s)
     buf[10] = redShift;
     buf[11] = greenShift;
     buf[12] = blueShift;
-    s->write(buf, 16);
+    s->write(reinterpret_cast<const char*>(buf), 16);
 }
 
 
@@ -312,7 +311,7 @@ void QRfbServerInit::read(QIODevice *s)
     name = QString::fromLatin1(nameData);
 }
 
-void QRfbServerInit::write(QIODevice *s)
+void QRfbServerInit::write(QIODevice *s) const
 {
     quint16 t = htons(width);
     s->write(reinterpret_cast<char *>(&t), 2);
@@ -366,8 +365,8 @@ bool QRfbKeyEvent::read(QIODevice *s)
     unicode = 0;
     keycode = 0;
     int i = 0;
-    while (keyMap[i].keysym && !keycode) {
-        if (keyMap[i].keysym == static_cast<int>(key))
+    while (keyMap[i].keysym != 0 && keycode == 0) {
+        if (static_cast<quint32>(keyMap[i].keysym) == key)
             keycode = keyMap[i].keycode;
         i++;
     }
@@ -377,11 +376,11 @@ bool QRfbKeyEvent::read(QIODevice *s)
 
     if (!keycode) {
         if (key <= 0xff) {
-            unicode = key;
+            unicode = static_cast<int>(key);
             if (key >= 'a' && key <= 'z')
-                keycode = Qt::Key_A + key - 'a';
+                keycode = Qt::Key_A + static_cast<int>(key) - 'a';
             else if (key >= ' ' && key <= '~')
-                keycode = Qt::Key_Space + key - ' ';
+                keycode = Qt::Key_Space + static_cast<int>(key) - ' ';
         }
     }
 
@@ -447,7 +446,7 @@ void QRfbRawEncoder::write()
     const auto rectsInRegion = rgn.rectCount();
 
     {
-        const char tmp[2] = { 0, 0 }; // msg type, padding
+        constexpr char tmp[2] = { 0, 0 }; // msg type, padding
         socket->write(tmp, sizeof(tmp));
     }
 
@@ -472,7 +471,7 @@ void QRfbRawEncoder::write()
                 screenImage, tileRect, client->pixelFormat());
             socket->write(pixels.constData(), pixels.size());
         } else {
-            qsizetype linestep = screenImage.bytesPerLine();
+            const qsizetype linestep = screenImage.bytesPerLine();
             const uchar *screendata = screenImage.scanLine(rect.y)
                                       + rect.x * screenImage.depth() / 8;
             for (int i = 0; i < rect.h; ++i) {
@@ -495,19 +494,19 @@ QRfbZlibEncoder::~QRfbZlibEncoder()
         deflateEnd(&m_stream);
 }
 
-void QRfbZlibEncoder::ensurePixelBuffer(qsizetype size)
+void QRfbZlibEncoder::ensurePixelBuffer(const qsizetype size)
 {
     if (m_pixelBuffer.size() < size)
         m_pixelBuffer.resize(size);
 }
 
-void QRfbZlibEncoder::ensureCompressedBuffer(qsizetype minimumSize)
+void QRfbZlibEncoder::ensureCompressedBuffer(const qsizetype minimumSize)
 {
     if (m_compressBuffer.size() < minimumSize)
         m_compressBuffer.resize(minimumSize);
 }
 
-bool QRfbZlibEncoder::compressCurrentBuffer(qsizetype rawSize, qsizetype *compressedSize)
+bool QRfbZlibEncoder::compressCurrentBuffer(const qsizetype rawSize, qsizetype *compressedSize)
 {
     if (!m_streamInitialized) {
         m_stream.zalloc = Z_NULL;
@@ -575,7 +574,7 @@ void QRfbZlibEncoder::write()
     const int rectsInRegion = rgn.rectCount();
 
     {
-        const char tmp[2] = { 0, 0 };
+        constexpr char tmp[2] = { 0, 0 };
         socket->write(tmp, sizeof(tmp));
     }
 
@@ -595,7 +594,7 @@ void QRfbZlibEncoder::write()
                             tileRect.width(), tileRect.height());
         rect.write(socket);
 
-        const qsizetype rowBytes = qsizetype(rect.w) * bytesPerPixel;
+        const qsizetype rowBytes = static_cast<qsizetype>(rect.w) * bytesPerPixel;
         const qsizetype rawSize = rowBytes * rect.h;
         
         QByteArray rawData;
@@ -620,8 +619,7 @@ void QRfbZlibEncoder::write()
         m_pixelBuffer = rawData; 
         
         qsizetype compressedSize = 0;
-        bool useZlib = compressCurrentBuffer(rawSize, &compressedSize);
-        if (useZlib) {
+        if (compressCurrentBuffer(rawSize, &compressedSize)) {
             const quint32 encoding = htonl(6);
             socket->write(reinterpret_cast<const char *>(&encoding), sizeof(encoding));
             const quint32 length = htonl(static_cast<quint32>(compressedSize));
@@ -640,14 +638,13 @@ QNoVncClientCursor::QNoVncClientCursor()
 {
     QWindow *w = QGuiApplication::focusWindow();
     QCursor c = w ? w->cursor() : QCursor(Qt::ArrowCursor);
-    changeCursor(&c, nullptr);
+    QNoVncClientCursor::changeCursor(&c, nullptr);
 }
 
 QNoVncClientCursor::~QNoVncClientCursor()
-{
-}
+= default;
 
-void QNoVncClientCursor::write(QNoVncClient *client) const
+void QNoVncClientCursor::write(const QNoVncClient *client) const
 {
     QIODevice *socket = client->clientSocket();
 
@@ -660,7 +657,7 @@ void QNoVncClientCursor::write(QNoVncClient *client) const
                                  htons(static_cast<uint16_t>(cursor.height())) };
         socket->write(reinterpret_cast<const char*>(tmp), sizeof(tmp));
 
-        const qint32 encoding = qToBigEndian(-239);
+        constexpr qint32 encoding = qToBigEndian(-239);
         socket->write(reinterpret_cast<const char*>(&encoding), sizeof(encoding));
     }
 
@@ -672,9 +669,9 @@ void QNoVncClientCursor::write(QNoVncClient *client) const
     const QImage img = cursor.convertToFormat(client->server()->screen()->format());
     const int n = client->clientBytesPerPixel() * img.width();
     const int depth = img.depth();
-    char *buffer = new char[n];
+    const auto buffer = new char[n];
     for (int i = 0; i < img.height(); ++i) {
-        client->convertPixels(buffer, (const char*)img.scanLine(i), img.width(), depth);
+        client->convertPixels(buffer, reinterpret_cast<const char*>(img.scanLine(i)), img.width(), depth);
         socket->write(buffer, n);
     }
     delete[] buffer;
@@ -724,7 +721,7 @@ uint QNoVncClientCursor::removeClient(QNoVncClient *client)
 }
 #endif // QT_CONFIG(cursor)
 
-QNoVncServer::QNoVncServer(QNoVncScreen *screen, quint16 port, QString host)
+QNoVncServer::QNoVncServer(QNoVncScreen *screen, const quint16 port, QString host)
     : QNoVnc_screen(screen)
     , m_port(port)
     , m_host(std::move(host))

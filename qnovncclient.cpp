@@ -11,6 +11,7 @@
 #include <QtGui/qguiapplication.h>
 #include <QtCore/QElapsedTimer>
 #include <atomic>
+#include <qendian.h>
 
 #ifdef Q_OS_WIN
 #include <winsock2.h>
@@ -49,12 +50,11 @@ QNoVncClient::QNoVncClient(QWebSocket *clientSocket, QNoVncServer *server)
     connect(m_clientSocket->socket(),SIGNAL(disconnected()),this,SLOT(discardClient()));
 
     m_debugTimingEnabled = qEnvironmentVariableIntValue("QNOVNC_DEBUG_REFRESH") == 1;
-    const int requestedWindow = qEnvironmentVariableIntValue("QNOVNC_DEBUG_REFRESH_WINDOW_MS");
-    if (requestedWindow > 0)
+    if (const int requestedWindow = qEnvironmentVariableIntValue("QNOVNC_DEBUG_REFRESH_WINDOW_MS"); requestedWindow > 0)
         m_debugWindowMs = requestedWindow;
 
     // send protocol version
-    const char *proto = "RFB 003.003\n";
+    auto proto = "RFB 003.003\n";
     m_clientSocket->write(proto, 12);
     m_state = Protocol;
 }
@@ -78,128 +78,66 @@ void QNoVncClient::setDirty(const QRegion &region)
     }
 }
 
-void QNoVncClient::convertPixels(char *dst, const char *src, int count, int screendepth) const
+void QNoVncClient::convertPixels(char *dst, const char *src, const int count, const int depth) const
 {
-    // cutoffs
-#if Q_BYTE_ORDER == Q_BIG_ENDIAN
-    if (!m_swapBytes)
-#endif
-    if (m_sameEndian) {
-        if (screendepth == m_pixelFormat.bitsPerPixel) { // memcpy cutoffs
+    const int bpp = m_pixelFormat.bitsPerPixel;
+    const int bytesPerPixel = (bpp + 7) / 8;
 
-            switch (screendepth) {
-            case 32:
-                memcpy(dst, src, count * sizeof(quint32));
-                return;
-            case 16:
-                if (m_pixelFormat.redBits == 5
-                    && m_pixelFormat.greenBits == 6
-                    && m_pixelFormat.blueBits == 5)
-                {
-                    memcpy(dst, src, count * sizeof(quint16));
-                    return;
-                }
-            }
+    if (m_sameEndian && depth == bpp) {
+        if (depth == 32 || (depth == 16 && m_pixelFormat.redBits == 5 && m_pixelFormat.greenBits == 6)) {
+            memcpy(dst, src, count * bytesPerPixel);
+            return;
         }
     }
 
-    const int bytesPerPixel = (m_pixelFormat.bitsPerPixel + 7) / 8;
-
     for (int i = 0; i < count; ++i) {
-        int r, g, b;
+        quint32 r, g, b;
 
-        switch (screendepth) {
-        case 8: {
-            QRgb rgb = m_server->screen()->image()->colorTable()[int(*src)];
-            r = qRed(rgb);
-            g = qGreen(rgb);
-            b = qBlue(rgb);
-            src++;
-            break;
-        }
-        case 16: {
-            quint16 p = *reinterpret_cast<const quint16*>(src);
+        if (depth == 8) {
+            const QRgb rgb = m_server->screen()->image()->colorTable()[static_cast<uint8_t>(*src)];
+            r = qRed(rgb); g = qGreen(rgb); b = qBlue(rgb);
+            src += 1;
+        } else if (depth == 16) {
+            quint16 p;
+            memcpy(&p, src, 2);
 #if Q_BYTE_ORDER == Q_BIG_ENDIAN
-            if (m_swapBytes)
-                p = ((p & 0xff) << 8) | ((p & 0xff00) >> 8);
+            if (m_swapBytes) p = qbswap<quint16>(p);
 #endif
-            r = (p >> 11) & 0x1f;
-            g = (p >> 5) & 0x3f;
-            b = p & 0x1f;
-            r <<= 3;
-            g <<= 2;
-            b <<= 3;
-            src += sizeof(quint16);
-            break;
-        }
-        case 32: {
-            quint32 p = *reinterpret_cast<const quint32*>(src);
+            r = ((p >> 11) & 0x1f) << 3;
+            g = ((p >> 5) & 0x3f) << 2;
+            b = (p & 0x1f) << 3;
+            src += 2;
+        } else if (depth == 32) {
+            quint32 p;
+            memcpy(&p, src, 4);
             r = (p >> 16) & 0xff;
             g = (p >> 8) & 0xff;
             b = p & 0xff;
-            src += sizeof(quint32);
-            break;
-        }
-        default: {
-            r = g = b = 0;
-            qWarning("QNoVNCServer: don't support %dbpp display", screendepth);
+            src += 4;
+        } else {
             return;
-        }
         }
 
 #if Q_BYTE_ORDER == Q_BIG_ENDIAN
-        if (m_swapBytes)
-            qSwap(r, b);
+        if (m_swapBytes) qSwap(r, b);
 #endif
 
         r >>= (8 - m_pixelFormat.redBits);
         g >>= (8 - m_pixelFormat.greenBits);
         b >>= (8 - m_pixelFormat.blueBits);
 
-        int pixel = (r << m_pixelFormat.redShift) |
-                    (g << m_pixelFormat.greenShift) |
-                    (b << m_pixelFormat.blueShift);
+        quint32 pixel = (r << m_pixelFormat.redShift) |
+                        (g << m_pixelFormat.greenShift) |
+                        (b << m_pixelFormat.blueShift);
 
-        if (m_sameEndian || m_pixelFormat.bitsPerPixel == 8) {
-            memcpy(dst, &pixel, bytesPerPixel);
-            dst += bytesPerPixel;
-            continue;
-        }
-
-
-        if (QSysInfo::ByteOrder == QSysInfo::BigEndian) {
-            switch (m_pixelFormat.bitsPerPixel) {
-            case 16:
-                pixel = (((pixel & 0x0000ff00) << 8)  |
-                         ((pixel & 0x000000ff) << 24));
-                break;
-            case 32:
-                pixel = (((pixel & 0xff000000) >> 24) |
-                         ((pixel & 0x00ff0000) >> 8)  |
-                         ((pixel & 0x0000ff00) << 8)  |
-                         ((pixel & 0x000000ff) << 24));
-                break;
-            default:
-                qWarning("Cannot handle %d bpp client", m_pixelFormat.bitsPerPixel);
-            }
-        } else { // QSysInfo::ByteOrder == QSysInfo::LittleEndian
-            switch (m_pixelFormat.bitsPerPixel) {
-            case 16:
-                pixel = (((pixel & 0xff000000) >> 8) |
-                         ((pixel & 0x00ff0000) << 8));
-                break;
-            case 32:
-                pixel = (((pixel & 0xff000000) >> 24) |
-                         ((pixel & 0x00ff0000) >> 8)  |
-                         ((pixel & 0x0000ff00) << 8)  |
-                         ((pixel & 0x000000ff) << 24));
-                break;
-            default:
-                qWarning("Cannot handle %d bpp client",
-                       m_pixelFormat.bitsPerPixel);
-                break;
+        if (!m_sameEndian && bpp > 8) {
+            if (bpp == 16) {
+                pixel = ((pixel & 0xFF) << 8) | ((pixel & 0xFF00) >> 8);
+            } else if (bpp == 32) {
+                pixel = qbswap<quint32>(pixel);
             }
         }
+
         memcpy(dst, &pixel, bytesPerPixel);
         dst += bytesPerPixel;
     }
@@ -229,7 +167,7 @@ void QNoVncClient::readClient()
                 if (m_protocolVersion == V3_3) {
                     // No authentication
                     quint32 auth = htonl(1);
-                    m_clientSocket->write((char *) &auth, sizeof(auth));
+                    m_clientSocket->write(reinterpret_cast<char*>(&auth), sizeof(auth));
                     m_state = Init;
                 }
             }
@@ -240,7 +178,7 @@ void QNoVncClient::readClient()
         case Init:
             if (m_clientSocket->bytesAvailable() >= 1) {
                 quint8 shared;
-                m_clientSocket->read((char *) &shared, 1);
+                m_clientSocket->read(reinterpret_cast<char*>(&shared), 1);
 
                 // Server Init msg
                 QRfbServerInit sim;
@@ -249,7 +187,7 @@ void QNoVncClient::readClient()
                 case 32:
                     format.bitsPerPixel = 32;
                     format.depth = 32;
-                    format.bigEndian = 0;
+                    format.bigEndian = false;
                     format.trueColor = true;
                     format.redBits = 8;
                     format.greenBits = 8;
@@ -262,7 +200,7 @@ void QNoVncClient::readClient()
                 case 24:
                     format.bitsPerPixel = 24;
                     format.depth = 24;
-                    format.bigEndian = 0;
+                    format.bigEndian = false;
                     format.trueColor = true;
                     format.redBits = 8;
                     format.greenBits = 8;
@@ -275,7 +213,7 @@ void QNoVncClient::readClient()
                 case 18:
                     format.bitsPerPixel = 24;
                     format.depth = 18;
-                    format.bigEndian = 0;
+                    format.bigEndian = false;
                     format.trueColor = true;
                     format.redBits = 6;
                     format.greenBits = 6;
@@ -288,7 +226,7 @@ void QNoVncClient::readClient()
                 case 16:
                     format.bitsPerPixel = 16;
                     format.depth = 16;
-                    format.bigEndian = 0;
+                    format.bigEndian = false;
                     format.trueColor = true;
                     format.redBits = 5;
                     format.greenBits = 6;
@@ -301,7 +239,7 @@ void QNoVncClient::readClient()
                 case 15:
                     format.bitsPerPixel = 16;
                     format.depth = 15;
-                    format.bigEndian = 0;
+                    format.bigEndian = false;
                     format.trueColor = true;
                     format.redBits = 5;
                     format.greenBits = 5;
@@ -314,7 +252,7 @@ void QNoVncClient::readClient()
                 case 12:
                     format.bitsPerPixel = 16;
                     format.depth = 12;
-                    format.bigEndian = 0;
+                    format.bigEndian = false;
                     format.trueColor = true;
                     format.redBits = 4;
                     format.greenBits = 4;
@@ -328,7 +266,7 @@ void QNoVncClient::readClient()
                 case 4:
                     format.bitsPerPixel = 8;
                     format.depth = 8;
-                    format.bigEndian = 0;
+                    format.bigEndian = false;
                     format.trueColor = false;
                     format.redBits = 0;
                     format.greenBits = 0;
@@ -349,7 +287,7 @@ void QNoVncClient::readClient()
                 sim.setName(QString("Qt NoVNC Server on %1").arg(QSysInfo::productType()));
                 sim.write(m_clientSocket);
                 m_pixelFormat = format;
-                m_sameEndian = (QSysInfo::ByteOrder == QSysInfo::BigEndian) == !!m_pixelFormat.bigEndian;
+                m_sameEndian = QSysInfo::ByteOrder == QSysInfo::BigEndian == !!m_pixelFormat.bigEndian;
                 m_needConversion = pixelConversionNeeded();
 #if Q_BYTE_ORDER == Q_BIG_ENDIAN
                 m_swapBytes = m_server->screen()->swapBytes();
@@ -451,7 +389,7 @@ bool QNoVncClient::event(QEvent *event)
     return QObject::event(event);
 }
 
-void QNoVncClient::recordClientStats(qint64 encodeDurationNs)
+void QNoVncClient::recordClientStats(const qint64 encodeDurationNs)
 {
     if (!m_debugTimingEnabled)
         return;
@@ -482,14 +420,14 @@ void QNoVncClient::recordClientStats(qint64 encodeDurationNs)
 
     m_updateWindowTimer.restart();
     const qreal avgIntervalMs = m_updateFrames > 0
-            ?  m_updateAccumIntervalNs / (1'000'000.0 * qreal(m_updateFrames))
-            : 0.0;
+    ? static_cast<qreal>(m_updateAccumIntervalNs) / (1'000'000.0 * static_cast<qreal>(m_updateFrames))
+    : 0.0;
     const qreal avgFps = avgIntervalMs > 0.0 ? 1000.0 / avgIntervalMs : 0.0;
-    const qreal lastIntervalMs = m_updateLastIntervalNs / 1'000'000.0;
+    const qreal lastIntervalMs = static_cast<qreal>(m_updateLastIntervalNs) / 1'000'000.0;
     const qreal avgEncodeMs = m_updateFrames > 0
-            ?  m_updateAccumEncodeNs / (1'000'000.0 * qreal(m_updateFrames))
+            ?  static_cast<qreal>(m_updateAccumEncodeNs) / (1'000'000.0 * static_cast<qreal>(m_updateFrames))
             : 0.0;
-    const qreal lastEncodeMs = m_updateLastEncodeNs / 1'000'000.0;
+    const qreal lastEncodeMs = static_cast<qreal>(m_updateLastEncodeNs) / 1'000'000.0;
 
    qWarning().nospace()
         << "Client[" << m_clientId << "] updates: avg interval "
@@ -512,16 +450,16 @@ void QNoVncClient::setPixelFormat()
         m_clientSocket->read(buf, 3); // just padding
         m_pixelFormat.read(m_clientSocket);
         qCDebug(lcVnc, "Want format: %d %d %d %d %d %d %d %d %d %d",
-            int(m_pixelFormat.bitsPerPixel),
-            int(m_pixelFormat.depth),
-            int(m_pixelFormat.bigEndian),
-            int(m_pixelFormat.trueColor),
-            int(m_pixelFormat.redBits),
-            int(m_pixelFormat.greenBits),
-            int(m_pixelFormat.blueBits),
-            int(m_pixelFormat.redShift),
-            int(m_pixelFormat.greenShift),
-            int(m_pixelFormat.blueShift));
+            static_cast<int>(m_pixelFormat.bitsPerPixel),
+            static_cast<int>(m_pixelFormat.depth),
+            m_pixelFormat.bigEndian,
+            m_pixelFormat.trueColor,
+            static_cast<int>(m_pixelFormat.redBits),
+            static_cast<int>(m_pixelFormat.greenBits),
+            static_cast<int>(m_pixelFormat.blueBits),
+            static_cast<int>(m_pixelFormat.redShift),
+            static_cast<int>(m_pixelFormat.greenShift),
+            static_cast<int>(m_pixelFormat.blueShift));
         if (!m_pixelFormat.trueColor) {
             qWarning("Can only handle true color clients");
             discardClient();
@@ -537,9 +475,7 @@ void QNoVncClient::setPixelFormat()
 
 void QNoVncClient::setEncodings()
 {
-    QRfbSetEncodings enc;
-
-    if (!m_encodingsPending && enc.read(m_clientSocket)) {
+    if (QRfbSetEncodings enc{}; !m_encodingsPending && enc.read(m_clientSocket)) {
         m_encodingsPending = enc.count;
         if (!m_encodingsPending)
             m_handleMsg = false;
@@ -562,12 +498,12 @@ void QNoVncClient::setEncodings()
         DesktopSize = -223
     };
 
-    if (m_encodingsPending && (unsigned)m_clientSocket->bytesAvailable() >=
+    if (m_encodingsPending && static_cast<unsigned>(m_clientSocket->bytesAvailable()) >=
                                 m_encodingsPending * sizeof(quint32)) {
         for (int i = 0; i < m_encodingsPending; ++i) {
             qint32 enc;
-            m_clientSocket->read((char *)&enc, sizeof(qint32));
-            enc = ntohl(enc);
+            m_clientSocket->read(reinterpret_cast<char*>(&enc), sizeof(qint32));
+            enc = static_cast<qint32>(ntohl(enc));
             qCDebug(lcVnc, "QNoVncServer::setEncodings: %d", enc);
             switch (enc) {
             case Raw:
@@ -623,9 +559,8 @@ void QNoVncClient::setEncodings()
 void QNoVncClient::frameBufferUpdateRequest()
 {
     qCDebug(lcVnc) << "FramebufferUpdateRequest";
-    QRfbFrameBufferUpdateRequest ev;
 
-    if (ev.read(m_clientSocket)) {
+    if (QRfbFrameBufferUpdateRequest ev; ev.read(m_clientSocket)) {
         if (!ev.incremental) {
             QRect r(ev.rect.x, ev.rect.y, ev.rect.w, ev.rect.h);
             r.translate(m_server->screen()->geometry().topLeft());
@@ -639,32 +574,29 @@ void QNoVncClient::frameBufferUpdateRequest()
 
 void QNoVncClient::pointerEvent()
 {
-    QRfbPointerEvent ev;
     static int buttonState = Qt::NoButton;
-    if (ev.read(m_clientSocket)) {
+    if (QRfbPointerEvent ev; ev.read(m_clientSocket)) {
         const QPointF pos = m_server->screen()->geometry().topLeft() + QPoint(ev.x, ev.y);
         if (m_server->screen()->m_readonly) {
             m_handleMsg = false;
             return;
         }
-        int buttonStateChange = buttonState ^ int(ev.buttons);
+        int buttonStateChange = buttonState ^ static_cast<int>(ev.buttons);
         QEvent::Type type = QEvent::MouseMove;
-        if (int(ev.buttons) > buttonState)
+        if (static_cast<int>(ev.buttons) > buttonState)
             type = QEvent::MouseButtonPress;
-        else if (int(ev.buttons) < buttonState)
+        else if (static_cast<int>(ev.buttons) < buttonState)
             type = QEvent::MouseButtonRelease;
-        QWindowSystemInterface::handleMouseEvent(nullptr, pos, pos, ev.buttons, Qt::MouseButton(buttonStateChange),
+        QWindowSystemInterface::handleMouseEvent(nullptr, pos, pos, ev.buttons, static_cast<Qt::MouseButton>(buttonStateChange),
                                                  type, QGuiApplication::keyboardModifiers());
-        buttonState = int(ev.buttons);
+        buttonState = static_cast<int>(ev.buttons);
         m_handleMsg = false;
     }
 }
 
 void QNoVncClient::keyEvent()
 {
-    QRfbKeyEvent ev;
-
-    if (ev.read(m_clientSocket)) {
+    if (QRfbKeyEvent ev{}; ev.read(m_clientSocket)) {
         if (m_server->screen()->m_readonly) {
             m_handleMsg = false;
             return;
@@ -694,16 +626,14 @@ void QNoVncClient::keyEvent()
 
 void QNoVncClient::clientCutText()
 {
-    QRfbClientCutText ev;
-
-    if (m_cutTextPending == 0 && ev.read(m_clientSocket)) {
+    if (QRfbClientCutText ev{}; m_cutTextPending == 0 && ev.read(m_clientSocket)) {
         m_cutTextPending = ev.length;
         if (!m_cutTextPending)
             m_handleMsg = false;
     }
 
     if (m_cutTextPending && m_clientSocket->bytesAvailable() >= m_cutTextPending) {
-        char *text = new char [m_cutTextPending+1];
+        const auto text = new char [m_cutTextPending+1];
         m_clientSocket->read(text, m_cutTextPending);
         delete [] text;
         m_cutTextPending = 0;
@@ -733,8 +663,10 @@ bool QNoVncClient::pixelConversionNeeded() const
         return (m_pixelFormat.redBits == 5
                 && m_pixelFormat.greenBits == 6
                 && m_pixelFormat.blueBits == 5);
+    default:
+        qWarning("QNoVncClient: Unknown depth %d", screendepth);
+        return true;
     }
-    return true;
 }
 
 QT_END_NAMESPACE

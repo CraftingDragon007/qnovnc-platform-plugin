@@ -21,21 +21,21 @@ class QNoVncScreen : public QFbScreen
 {
     Q_OBJECT
 public:
-    QNoVncScreen(const QStringList &args);
-    ~QNoVncScreen();
+    explicit QNoVncScreen(const QStringList &args);
+    ~QNoVncScreen() override;
 
     bool initialize() override;
 
-    QPixmap grabWindow(WId wid, int x, int y, int width, int height) const override;
+    [[nodiscard]] QPixmap grabWindow(WId wid, int x, int y, int width, int height) const override;
 
     QRegion doRedraw() override;
     QImage *image() { return &mScreenImage; }
 
     void enableClientCursor(QNoVncClient *client);
     void disableClientCursor(QNoVncClient *client);
-    QPlatformCursor *cursor() const override;
+    [[nodiscard]] QPlatformCursor *cursor() const override;
 
-    Flags flags() const override;
+    [[nodiscard]] Flags flags() const override;
 
     void clearDirty() { dirtyRegion = QRegion(); }
 
@@ -46,14 +46,14 @@ public:
     QStringList mArgs;
 
     [[nodiscard]] QDpi logicalDpi() const override {
-        return QDpi(dpiX, dpiY);
+        return {dpiX, dpiY};
     }
 
     [[nodiscard]] QSizeF physicalSize() const override {
         constexpr qreal kDpi = 96.0;
         const QSize pixelSize = geometry().size();
-        return QSizeF(pixelSize.width() / kDpi * 25.4,
-                      pixelSize.height() / kDpi * 25.4);
+        return {pixelSize.width() / kDpi * 25.4,
+                      pixelSize.height() / kDpi * 25.4};
     }
 
 

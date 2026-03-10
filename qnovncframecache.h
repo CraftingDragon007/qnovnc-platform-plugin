@@ -51,7 +51,7 @@ public:
     void clear();
 
 private:
-    void convertPixels(char *dst, const char *src, int count, int screendepth, const QRfbPixelFormat &pixelFormat) const;
+    static void convertPixels(char *dst, const char *src, int count, int screendepth, const QRfbPixelFormat &pixelFormat);
 
     mutable QMutex m_mutex;
     quint64 m_currentFrameId = 0;
