@@ -103,6 +103,21 @@ set(QNOVNC_SOURCES
         qnovncwindow.h
 )
 
+                if(UNIX AND NOT APPLE)
+                    find_package(PkgConfig QUIET)
+                    if(PkgConfig_FOUND)
+                        pkg_check_modules(EGL QUIET IMPORTED_TARGET egl)
+                        pkg_check_modules(GL QUIET IMPORTED_TARGET gl)
+                    endif()
+
+                    if(EGL_FOUND AND GL_FOUND)
+                        list(APPEND QNOVNC_SOURCES
+                            qnovncopenglcontext.cpp
+                            qnovncopenglcontext.h
+                        )
+                    endif()
+                endif()
+
 if(_qt_major EQUAL 6)
     qt_add_plugin(${PROJECT_NAME} PLUGIN_TYPE platforms
         ${QNOVNC_SOURCES}
@@ -158,6 +173,15 @@ endforeach()
 
 if(TARGET ${_qt_package}::InputSupportPrivate)
     target_link_libraries(${PROJECT_NAME} PRIVATE ${_qt_package}::InputSupportPrivate)
+endif()
+
+if(EGL_FOUND AND GL_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE QNOVNC_HAS_EGL_MESA=1)
+    target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::EGL PkgConfig::GL)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${EGL_INCLUDE_DIRS} ${GL_INCLUDE_DIRS})
+    message(STATUS "Enabled OpenGL support via EGL/Mesa")
+else()
+    message(STATUS "EGL and/or GL not found; OpenGL support disabled")
 endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

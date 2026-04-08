@@ -5,6 +5,12 @@
 
 #include "qnovncscreen.h"
 
+#if defined(QNOVNC_HAS_EGL_MESA)
+#include "qnovncopenglcontext.h"
+#endif
+
+#include <qpa/qplatformopenglcontext.h>
+
 #include <QtFbSupport/private/qfbbackingstore_p.h>
 
 #include "qnovnc_p.h"
@@ -28,6 +34,8 @@ QNoVncScreen::QNoVncScreen(const QStringList &args)
 
 QNoVncScreen::~QNoVncScreen()
 {
+    delete m_platformContext;
+    m_platformContext = nullptr;
     delete dirty;
     dirty = nullptr;
 #if QT_CONFIG(cursor)
@@ -136,17 +144,41 @@ QRegion QNoVncScreen::doRedraw()
         painter.setCompositionMode(QPainter::CompositionMode_Source);
         painter.fillRect(rect, mScreenImage.hasAlphaChannel() ? Qt::transparent : Qt::black);
 
+        // Pass 1: paint regular raster/backingstore windows.
         for (qsizetype layerIndex = mWindowStack.size() - 1; layerIndex != -1; layerIndex--) {
-            if (!mWindowStack[layerIndex]->window()->isVisible())
+            QFbWindow *fbWindow = mWindowStack[layerIndex];
+            if (!fbWindow->window()->isVisible())
                 continue;
 
-            const QRect windowRect = mWindowStack[layerIndex]->geometry().translated(-screenOffset);
+            const QRect windowRect = fbWindow->geometry().translated(-screenOffset);
             const QRect windowIntersect = rect.translated(-windowRect.left(), -windowRect.top());
-            if (QFbBackingStore *backingStore = mWindowStack[layerIndex]->backingStore()) {
+
+            auto *window = static_cast<QNoVncWindow *>(fbWindow);
+            const bool hasWindowImage = window->image() && !window->image()->isNull();
+
+            if (hasWindowImage)
+                continue;
+
+            if (QFbBackingStore *backingStore = fbWindow->backingStore()) {
                 backingStore->lock();
                 painter.drawImage(rect, backingStore->image(), windowIntersect);
                 backingStore->unlock();
             }
+        }
+
+        // Pass 2: paint OpenGL/readback windows on top so they are not covered by parent backingstores.
+        for (qsizetype layerIndex = mWindowStack.size() - 1; layerIndex != -1; layerIndex--) {
+            QFbWindow *fbWindow = mWindowStack[layerIndex];
+            if (!fbWindow->window()->isVisible())
+                continue;
+
+            auto *window = static_cast<QNoVncWindow *>(fbWindow);
+            if (!window->image() || window->image()->isNull())
+                continue;
+
+            const QRect windowRect = fbWindow->geometry().translated(-screenOffset);
+            const QRect windowIntersect = rect.translated(-windowRect.left(), -windowRect.top());
+            painter.drawImage(rect, *window->image(), windowIntersect);
         }
     }
 
@@ -305,6 +337,31 @@ bool QNoVncScreen::swapBytes() const
 QFbScreen::Flags QNoVncScreen::flags() const
 {
     return QFbScreen::DontForceFirstWindowToFullScreen;
+}
+
+QPlatformOpenGLContext *QNoVncScreen::platformContext() const
+{
+    return m_platformContext;
+}
+
+void QNoVncScreen::createAndSetPlatformContext(const QSurfaceFormat &format) const
+{
+    const_cast<QNoVncScreen *>(this)->createAndSetPlatformContext(format);
+}
+
+void QNoVncScreen::createAndSetPlatformContext(const QSurfaceFormat &format)
+{
+#if defined(QNOVNC_HAS_EGL_MESA)
+    if (m_platformContext && !m_platformContext->isValid()) {
+        delete m_platformContext;
+        m_platformContext = nullptr;
+    }
+
+    if (!m_platformContext)
+        m_platformContext = new QNoVncOpenGLContext(format);
+#else
+    Q_UNUSED(format);
+#endif
 }
 
 QT_END_NAMESPACE

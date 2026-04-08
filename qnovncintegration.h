@@ -14,6 +14,7 @@ QT_BEGIN_NAMESPACE
 class QAbstractEventDispatcher;
 class QNoVncScreen;
 class QNoVncServer;
+class QOpenGLContext;
 
 class QNoVncIntegration : public QPlatformIntegration, public QPlatformNativeInterface
 {
@@ -26,6 +27,7 @@ public:
 
     QPlatformWindow *createPlatformWindow(QWindow *window) const override;
     QPlatformBackingStore *createPlatformBackingStore(QWindow *window) const override;
+    QPlatformOpenGLContext *createPlatformOpenGLContext(QOpenGLContext *context) const override;
 
     QAbstractEventDispatcher *createEventDispatcher() const override;
 

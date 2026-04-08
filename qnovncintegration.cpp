@@ -8,6 +8,10 @@
 #include "qnovncwindow.h"
 #include "qnovnc_p.h"
 
+#if defined(QNOVNC_HAS_EGL_MESA)
+#include "qnovncopenglcontext.h"
+#endif
+
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #if defined(Q_OS_WIN)
 #  include <QtGui/private/qwindowsfontdatabase_p.h>
@@ -40,10 +44,12 @@
 #include <QtFbSupport/private/qfbcursor_p.h>
 
 #include <QtGui/private/qguiapplication_p.h>
+#include <QtGui/private/qopenglcontext_p.h>
 #include <qpa/qplatforminputcontextfactory_p.h>
 #include <qpa/qplatforminputcontext.h>
 #include <private/qinputdevicemanager_p_p.h>
 #include <qpa/qwindowsysteminterface.h>
+#include <QtGui/QOpenGLContext>
 
 #include <QtCore/QRegularExpression>
 
@@ -149,6 +155,9 @@ bool QNoVncIntegration::hasCapability(QPlatformIntegration::Capability cap) cons
     switch (cap) {
     case ThreadedPixmaps: return true;
     case WindowManagement: return false;
+#if defined(QNOVNC_HAS_EGL_MESA)
+    case OpenGL: return true;
+#endif
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     case RhiBasedRendering: return false;
 #endif
@@ -164,6 +173,25 @@ QPlatformBackingStore *QNoVncIntegration::createPlatformBackingStore(QWindow *wi
 QPlatformWindow *QNoVncIntegration::createPlatformWindow(QWindow *window) const
 {
     return new QNoVncWindow(window);
+}
+
+QPlatformOpenGLContext *QNoVncIntegration::createPlatformOpenGLContext(QOpenGLContext *context) const
+{
+#if defined(QNOVNC_HAS_EGL_MESA)
+    QSurfaceFormat requestedFormat;
+    QPlatformOpenGLContext *shareContext = nullptr;
+    if (context)
+        requestedFormat = context->format();
+    if (context && context->shareContext())
+        shareContext = QOpenGLContextPrivate::get(context->shareContext())->platformGLContext;
+
+    // Qt owns QPlatformOpenGLContext instances per QOpenGLContext.
+    // Returning a shared singleton causes dangling pointers when one QOpenGLContext gets destroyed.
+    return new QNoVncOpenGLContext(requestedFormat, shareContext);
+#else
+    Q_UNUSED(context);
+    return nullptr;
+#endif
 }
 
 QAbstractEventDispatcher *QNoVncIntegration::createEventDispatcher() const

@@ -9,6 +9,7 @@ based on the original Qt VNC QPA plugin.
 - Zlib compression support
 - Optional client update timing diagnostics via `QNOVNC_DEBUG_REFRESH`
 - Added windows support (only qt6, currenctly readonly)
+- Optional OpenGL context support via EGL/Mesa on Linux (initial integration adapted from `https://github.com/duerkopp-adler/qtvncplugin` by `https://github.com/poker-phase` and `https://github.com/KoopA-DA`)
 
 ## Debugging
 
@@ -24,6 +25,19 @@ framebuffer update is sent. Each line looks like `Client[<id>] updates: ...` and
 the average/last interval between the updates along with the corresponding time spent in
 the encoder. The statistics are aggregated over a one‑second window; you can change that
 interval through `QNOVNC_DEBUG_REFRESH_WINDOW_MS` (milliseconds).
+
+## OpenGL Notes
+
+- The EGL/Mesa path is intended for Linux and now supports both `QtWebEngine` and `Qt3D` (including `Qt3DWindow` embedded via `QWidget::createWindowContainer(...)`).
+- For software rendering you can force Mesa/llvmpipe via environment variables:
+
+```bash
+export LIBGL_ALWAYS_SOFTWARE=1
+export GALLIUM_DRIVER=llvmpipe
+export QT_QPA_PLATFORM=novnc
+```
+
+- If OpenGL content is missing while widgets are visible, verify that the application is actually using this platform plugin (`QT_QPA_PLATFORM=novnc`) and that the plugin was built with EGL support enabled.
 
 ## Building
 

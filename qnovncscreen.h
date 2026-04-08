@@ -16,6 +16,8 @@ class QNoVncServer;
 class QNoVncDirtyMap;
 class QNoVncClientCursor;
 class QNoVncClient;
+class QPlatformOpenGLContext;
+class QSurfaceFormat;
 
 class QNoVncScreen : public QFbScreen
 {
@@ -36,6 +38,10 @@ public:
     [[nodiscard]] QPlatformCursor *cursor() const override;
 
     [[nodiscard]] Flags flags() const override;
+
+    [[nodiscard]] QPlatformOpenGLContext *platformContext() const;
+    void createAndSetPlatformContext(const QSurfaceFormat &format) const;
+    void createAndSetPlatformContext(const QSurfaceFormat &format);
 
     void clearDirty() { dirtyRegion = QRegion(); }
 
@@ -67,6 +73,7 @@ public:
 #if QT_CONFIG(cursor)
     QNoVncClientCursor *clientCursor = nullptr;
 #endif
+    QPlatformOpenGLContext *m_platformContext = nullptr;
 
 private:
     QImage m_prevScreenImage; // Shadow buffer for previous frame
