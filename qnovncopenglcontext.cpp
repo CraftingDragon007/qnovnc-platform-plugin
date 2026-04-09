@@ -431,10 +431,6 @@ bool QNoVncOpenGLContext::readBackToWindow(QNoVncWindow *window, const QSize &si
         memcpy(bottom, temp.constData(), bytesPerLine);
     }
 
-    // Qt3D can trigger swaps from auxiliary contexts; ignore obviously spurious full-white frames.
-    if (!image->isNull() && !frameLooksFlatWhite(*image) && frameLooksFlatWhite(newImage))
-        return true;
-
     *image = std::move(newImage);
     return true;
 }
