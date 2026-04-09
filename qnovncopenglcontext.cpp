@@ -11,7 +11,6 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QByteArray>
-#include <QtCore/QMutex>
 #include <QtCore/QMutexLocker>
 #include <QtGui/QOpenGLContext>
 #include <QtGui/QOpenGLFunctions>
@@ -127,13 +126,10 @@ static bool frameLooksFlatWhite(const QImage &image)
         {(image.width() * 3) / 4, (image.height() * 3) / 4}
     };
 
-    for (const QPoint &p : samples) {
-        const QRgb px = image.pixel(p);
-        if (qRed(px) != 255 || qGreen(px) != 255 || qBlue(px) != 255)
-            return false;
-    }
-
-    return true;
+    return std::all_of(std::begin(samples), std::end(samples), [&](const QPoint &sample) {
+        const QColor color = image.pixel(sample);
+        return color.red() == 255 && color.green() == 255 && color.blue() == 255;
+    });
 }
 
 static bool createEglDisplayAndContext(QNoVncOpenGLContextData *d, EGLContext shareContext)
@@ -497,7 +493,7 @@ void QNoVncOpenGLContext::swapBuffers(QPlatformSurface *surface)
     if (!surface || !surface->screen())
         return;
 
-    auto *screen = static_cast<QNoVncScreen *>(surface->screen());
+    auto *screen = dynamic_cast<QNoVncScreen *>(surface->screen());
     if (window)
         screen->setDirty(window->geometry());
     else
@@ -509,7 +505,7 @@ void QNoVncOpenGLContext::swapBuffers(QPlatformSurface *surface)
 
 QFunctionPointer QNoVncOpenGLContext::getProcAddress(const char *procName)
 {
-    return reinterpret_cast<QFunctionPointer>(eglGetProcAddress(procName));
+    return eglGetProcAddress(procName);
 }
 
 GLuint QNoVncOpenGLContext::defaultFramebufferObject(QPlatformSurface *surface) const
