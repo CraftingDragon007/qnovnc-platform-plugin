@@ -277,7 +277,7 @@ void QNoVncClient::readClient()
                     break;
 
                 default:
-                    qWarning("QNoVNC cannot drive depth %d", m_server->screen()->depth());
+                    qCWarning(lcVnc, "QNoVNC cannot drive depth %d", m_server->screen()->depth());
                     discardClient();
                     return;
                 }
@@ -308,7 +308,7 @@ void QNoVncClient::readClient()
                         setPixelFormat();
                         break;
                     case FixColourMapEntries:
-                        qWarning("Not supported: FixColourMapEntries");
+                        qCWarning(lcVnc) << "Not supported: FixColourMapEntries";
                         m_handleMsg = false;
                         break;
                     case SetEncodings:
@@ -327,7 +327,7 @@ void QNoVncClient::readClient()
                         clientCutText();
                         break;
                     default:
-                        qWarning("Unknown message type: %d", (int)m_msgType);
+                        qCWarning(lcVnc, "Unknown message type: %d", (int)m_msgType);
                         m_handleMsg = false;
                     }
                 }
@@ -429,7 +429,7 @@ void QNoVncClient::recordClientStats(const qint64 encodeDurationNs)
             : 0.0;
     const qreal lastEncodeMs = static_cast<qreal>(m_updateLastEncodeNs) / 1'000'000.0;
 
-   qWarning().nospace()
+   qCInfo(lcVnc).nospace()
         << "Client[" << m_clientId << "] updates: avg interval "
         << QString::number(avgIntervalMs, 'f', 2)
         << " ms (" << QString::number(avgFps, 'f', 2) << " fps)"
@@ -461,7 +461,7 @@ void QNoVncClient::setPixelFormat()
             static_cast<int>(m_pixelFormat.greenShift),
             static_cast<int>(m_pixelFormat.blueShift));
         if (!m_pixelFormat.trueColor) {
-            qWarning("Can only handle true color clients");
+            qCWarning(lcVnc) << "Can only handle true color clients";
             discardClient();
         }
         m_handleMsg = false;
@@ -664,7 +664,7 @@ bool QNoVncClient::pixelConversionNeeded() const
                 && m_pixelFormat.greenBits == 6
                 && m_pixelFormat.blueBits == 5);
     default:
-        qWarning("QNoVncClient: Unknown depth %d", screendepth);
+        qCWarning(lcVnc, "QNoVncClient: Unknown depth %d", screendepth);
         return true;
     }
 }

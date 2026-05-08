@@ -136,7 +136,7 @@ void QNoVncIntegration::initialize()
     if (m_primaryScreen->initialize())
         QWindowSystemInterface::handleScreenAdded(m_primaryScreen);
     else
-        qWarning("novnc: Failed to initialize screen");
+        qCWarning(lcVnc) << "Failed to initialize screen";
 
     m_inputContext = QPlatformInputContextFactory::create();
 

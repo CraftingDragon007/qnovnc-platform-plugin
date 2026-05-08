@@ -513,21 +513,21 @@ bool QRfbZlibEncoder::compressCurrentBuffer(const qsizetype rawSize, qsizetype *
         m_stream.zfree = Z_NULL;
         m_stream.opaque = Z_NULL;
         if (deflateInit(&m_stream, 2) != Z_OK) {
-            qWarning(lcVnc) << "Failed to initialize zlib stream";
+            qCWarning(lcVnc) << "Failed to initialize zlib stream";
             return false;
         }
         m_streamInitialized = true;
     }
 
     if (rawSize <= 0 || rawSize > std::numeric_limits<uLong>::max()) {
-        qWarning(lcVnc) << "Rectangle too large for zlib compression" << rawSize;
+        qCWarning(lcVnc) << "Rectangle too large for zlib compression" << rawSize;
         return false;
     }
 
     uLong bound = deflateBound(&m_stream, static_cast<uLong>(rawSize));
     bound += 6; // extra headroom for Z_SYNC_FLUSH trailer
     if (bound > std::numeric_limits<uInt>::max()) {
-        qWarning(lcVnc) << "zlib bound exceeds supported size" << bound;
+        qCWarning(lcVnc) << "zlib bound exceeds supported size" << bound;
         return false;
     }
     ensureCompressedBuffer(static_cast<qsizetype>(bound));
@@ -540,7 +540,7 @@ bool QRfbZlibEncoder::compressCurrentBuffer(const qsizetype rawSize, qsizetype *
     while (m_stream.avail_in > 0) {
         const int ret = deflate(&m_stream, Z_SYNC_FLUSH);
         if (ret != Z_OK) {
-            qWarning(lcVnc) << "zlib compression failed" << ret;
+            qCWarning(lcVnc) << "zlib compression failed" << ret;
             deflateEnd(&m_stream);
             memset(&m_stream, 0, sizeof(m_stream));
             m_streamInitialized = false;
@@ -735,9 +735,9 @@ void QNoVncServer::init()
     serverSocket = new QWebSocketServer(QStringLiteral("QNoVNC Server"),
                                         QWebSocketServer::NonSecureMode, this);
     if (!serverSocket->listen(QHostAddress(m_host), m_port))
-        qWarning() << "QNoVncServer could not connect:" << serverSocket->errorString();
+        qCWarning(lcVnc) << "QNoVncServer could not connect:" << serverSocket->errorString();
     else
-        qWarning("QNoVncServer created on port %d on host %s", m_port, m_host.toStdString().c_str());
+        qCInfo(lcVnc, "QNoVncServer created on port %d on host %s", m_port, m_host.toStdString().c_str());
 
     connect(serverSocket, SIGNAL(newConnection()), this, SLOT(newConnection()));
 
@@ -748,10 +748,10 @@ void QNoVncServer::init()
         if (qEnvironmentVariableIntValue("QNOVNC_VISUALIZE_UPDATE") == 1)
         {
             qputenv("QNOVNC_VISUALIZE_UPDATE", "0");
-            qWarning("QNOVNC_VISUALIZE_UPDATE is now disabled");
+            qCInfo(lcVnc, "QNOVNC_VISUALIZE_UPDATE is now disabled");
         } else {
             qputenv("QNOVNC_VISUALIZE_UPDATE", "1");
-            qWarning("QNOVNC_VISUALIZE_UPDATE is now enabled for 20 seconds");
+            qCInfo(lcVnc, "QNOVNC_VISUALIZE_UPDATE is now enabled for 20 seconds");
         }
     });
 

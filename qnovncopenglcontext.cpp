@@ -21,6 +21,9 @@
 #include <EGL/eglext.h>
 
 #include <cstring>
+#include <qloggingcategory.h>
+
+#include "qnovnc_p.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -242,7 +245,7 @@ QNoVncOpenGLContext::QNoVncOpenGLContext(const QSurfaceFormat &format,
         shareEglContext = shareNoVncContext->d->context;
 
     if (!createEglDisplayAndContext(d.data(), shareEglContext))
-        qWarning() << "novnc: Failed to initialize EGL context";
+        qCWarning(lcVnc) << "novnc: Failed to initialize EGL context";
 }
 
 QNoVncOpenGLContext::~QNoVncOpenGLContext()
@@ -360,7 +363,7 @@ bool QNoVncOpenGLContext::ensureFramebuffer(const QSize &size)
     bindFramebufferRaw(context(), GL_FRAMEBUFFER, static_cast<GLuint>(previousFbo));
 
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        qWarning() << "novnc-gl: FBO incomplete, status=0x" << Qt::hex << int(status);
+        qCWarning(lcVnc) << "novnc-gl: FBO incomplete, status=0x" << Qt::hex << int(status);
         return false;
     }
 
