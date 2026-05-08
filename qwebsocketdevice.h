@@ -10,6 +10,7 @@
 #pragma once
 
 #include <QIODevice>
+#include <QPointer>
 #include <QWebSocket>
 #include <QtCore/QtGlobal>
 
@@ -17,13 +18,17 @@ class QWebSocketDevice : public QIODevice {
     Q_OBJECT
 public:
     explicit QWebSocketDevice(QWebSocket *socket, QObject *parent = nullptr)
-        : QIODevice(parent), m_socket(socket) {
+        : QIODevice(parent), m_socket(socket), m_isConnected(false) {
         Q_ASSERT(m_socket);
         QIODevice::open(QIODevice::ReadWrite);
+        connect(m_socket, &QWebSocket::connected,
+                this, &QWebSocketDevice::onSocketConnected);
         connect(m_socket, &QWebSocket::binaryMessageReceived,
                 this, &QWebSocketDevice::onBinaryMessageReceived);
         connect(m_socket, &QWebSocket::disconnected,
                 this, &QWebSocketDevice::onSocketDisconnected);
+        connect(m_socket, &QObject::destroyed,
+                this, &QWebSocketDevice::onSocketDestroyed);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         connect(m_socket, &QWebSocket::errorOccurred,
                 this, &QWebSocketDevice::onSocketError);
@@ -31,6 +36,7 @@ public:
         connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
                 this, &QWebSocketDevice::onSocketError);
 #endif
+        m_isConnected = (m_socket->state() == QAbstractSocket::ConnectedState);
     }
 
     ~QWebSocketDevice() override = default;
@@ -55,13 +61,23 @@ protected:
 
     qint64 writeData(const char *data, const qint64 maxSize) override {
         // Send each write as a binary WebSocket frame
-        if (!m_socket || m_socket->state() != QAbstractSocket::ConnectedState)
+        if (!isOpen() || m_socket.isNull() || !m_isConnected)
             return -1;
-        m_socket->sendBinaryMessage(QByteArray(data, static_cast<int>(maxSize)));
-        return maxSize;
+        if (m_socket->state() != QAbstractSocket::ConnectedState) {
+            m_isConnected = false;
+            return -1;
+        }
+        const qint64 written = m_socket->sendBinaryMessage(QByteArray(data, static_cast<int>(maxSize)));
+        if (written < 0)
+            return -1;
+        return written;
     }
 
 private slots:
+    void onSocketConnected() {
+        m_isConnected = true;
+    }
+
     void onBinaryMessageReceived(const QByteArray &message) {
         if (!message.isEmpty()) {
             m_readBuffer.append(message);
@@ -70,18 +86,24 @@ private slots:
     }
 
     void onSocketDisconnected() {
+        m_isConnected = false;
         if (isOpen()) {
-            QIODevice::close();
             Q_EMIT aboutToClose();
+            QIODevice::close();
         }
     }
 
-    void onSocketError(QAbstractSocket::SocketError) {
+    void onSocketDestroyed() {
+        m_isConnected = false;
+    }
 
+    void onSocketError(QAbstractSocket::SocketError) {
+        m_isConnected = false;
     }
 
 private:
-    QWebSocket *m_socket;
+    QPointer<QWebSocket> m_socket;
+    bool m_isConnected;
     QByteArray m_readBuffer;
 };
 

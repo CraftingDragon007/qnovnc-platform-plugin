@@ -341,11 +341,19 @@ void QNoVncClient::readClient()
 void QNoVncClient::discardClient()
 {
     m_state = Disconnected;
+    m_wantUpdate = false;
+    m_updatePending = false;
+    m_dirtyCursor = false;
+    m_dirtyRegion = QRegion();
     m_server->discardClient(this);
 }
 
 void QNoVncClient::checkUpdate()
 {
+    if (m_state != Connected || !m_clientSocket || !m_clientSocket->isOpen()) {
+        m_wantUpdate = false;
+        return;
+    }
     if (!m_wantUpdate)
         return;
 #if QT_CONFIG(cursor)

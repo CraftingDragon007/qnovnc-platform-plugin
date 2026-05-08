@@ -427,6 +427,8 @@ bool QRfbClientCutText::read(QIODevice *s)
 void QRfbRawEncoder::write()
 {
     QIODevice *socket = client->clientSocket();
+    if (!socket || !socket->isOpen())
+        return;
 
     const int bytesPerPixel = client->clientBytesPerPixel();
     QRegion rgn = client->dirtyRegion();
@@ -556,6 +558,8 @@ bool QRfbZlibEncoder::compressCurrentBuffer(const qsizetype rawSize, qsizetype *
 void QRfbZlibEncoder::write()
 {
     QIODevice *socket = client->clientSocket();
+    if (!socket || !socket->isOpen())
+        return;
     const int bytesPerPixel = client->clientBytesPerPixel();
     QRegion rgn = client->dirtyRegion();
     qCDebug(lcVnc) << "QRfbZlibEncoder::write()" << rgn;
@@ -647,6 +651,8 @@ QNoVncClientCursor::~QNoVncClientCursor()
 void QNoVncClientCursor::write(const QNoVncClient *client) const
 {
     QIODevice *socket = client->clientSocket();
+    if (!socket || !socket->isOpen())
+        return;
 
     // FramebufferUpdate header
     {
