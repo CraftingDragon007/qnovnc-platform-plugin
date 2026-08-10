@@ -105,6 +105,7 @@ private:
     uint m_supportDesktopSize : 1;
     bool m_wantUpdate;
     Qt::KeyboardModifiers m_keymod;
+    Qt::MouseButtons m_buttonState = Qt::NoButton;
     bool m_dirtyCursor;
     bool m_updatePending;
 #if Q_BYTE_ORDER == Q_BIG_ENDIAN

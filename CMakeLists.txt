@@ -15,6 +15,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 set(QT_NO_PRIVATE_MODULE_WARNING ON)
+option(QNOVNC_BUILD_TESTS "Build qnovnc tests" OFF)
 
 set(QT_REQUIRED_PUBLIC_COMPONENTS
     Core Gui Network WebSockets
@@ -93,6 +94,7 @@ endif()
 set(QNOVNC_SOURCES
     main.cpp
     qnovnc.cpp qnovnc_p.h
+    qnovncbackingstore.cpp qnovncbackingstore.h
     qnovncclient.cpp qnovncclient.h
     qnovncintegration.cpp qnovncintegration.h
     qnovncscreen.cpp qnovncscreen.h
@@ -193,3 +195,18 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 install(TARGETS ${PROJECT_NAME}
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/qt${_qt_major}/plugins/platforms"
 )
+
+if(QNOVNC_BUILD_TESTS AND _qt_major EQUAL 6)
+    find_package(Qt6 COMPONENTS Widgets Test REQUIRED)
+
+    qt_add_executable(qnovnc_popupgrab_test
+        tests/popupgrabtest.cpp
+    )
+    target_link_libraries(qnovnc_popupgrab_test PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Test
+    )
+    add_dependencies(qnovnc_popupgrab_test ${PROJECT_NAME})
+endif()

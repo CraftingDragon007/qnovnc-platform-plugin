@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include "qnovncintegration.h"
+#include "qnovncbackingstore.h"
 #include "qnovncscreen.h"
 #include "qnovncwindow.h"
 #include "qnovnc_p.h"
@@ -167,7 +168,7 @@ bool QNoVncIntegration::hasCapability(QPlatformIntegration::Capability cap) cons
 
 QPlatformBackingStore *QNoVncIntegration::createPlatformBackingStore(QWindow *window) const
 {
-    return new QFbBackingStore(window);
+    return new QNoVncBackingStore(window);
 }
 
 QPlatformWindow *QNoVncIntegration::createPlatformWindow(QWindow *window) const

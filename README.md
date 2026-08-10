@@ -10,6 +10,7 @@ based on the original Qt VNC QPA plugin.
 - Optional client update timing diagnostics via `QNOVNC_DEBUG_REFRESH`
 - Added windows support (only qt6, currenctly readonly)
 - Optional OpenGL context support via EGL/Mesa on Linux (initial integration adapted from `https://github.com/duerkopp-adler/qtvncplugin` by `https://github.com/poker-phase` and `https://github.com/KoopA-DA`)
+- Popup mouse/keyboard grab support for repeated Qt menu and combo-box popups.
 
 ## Debugging
 
@@ -25,6 +26,15 @@ framebuffer update is sent. Each line looks like `Client[<id>] updates: ...` and
 the average/last interval between the updates along with the corresponding time spent in
 the encoder. The statistics are aggregated over a one‑second window; you can change that
 interval through `QNOVNC_DEBUG_REFRESH_WINDOW_MS` (milliseconds).
+
+For popup/menu input routing diagnostics, enable:
+
+```bash
+QT_LOGGING_RULES="qt.qpa.novnc.popup.debug=true" QT_QPA_PLATFORM=novnc ...
+```
+
+Other focused debug categories are `qt.qpa.novnc.protocol`, `qt.qpa.novnc.encoding`,
+and `qt.qpa.novnc.input`.
 
 ## OpenGL Notes
 
@@ -51,6 +61,16 @@ cmake --build build
 # Not supported on windows!
 cmake -S . -B build-qt5 -DQT_DEFAULT_MAJOR_VERSION=5
 cmake --build build-qt5
+```
+
+## Test utility
+
+An optional Qt 6 popup test utility can be built with:
+
+```bash
+cmake -S . -B build -DQT_DEFAULT_MAJOR_VERSION=6 -DQNOVNC_BUILD_TESTS=ON
+cmake --build build --target qnovnc_popupgrab_test
+QT_QPA_PLATFORM_PLUGIN_PATH=build QT_QPA_PLATFORM="novnc:size=400x300:depth=32:port=5911:host=127.0.0.1" build/qnovnc_popupgrab_test
 ```
 
 ## Building RPMs in Docker

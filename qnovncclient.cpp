@@ -4,8 +4,10 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include "qnovncclient.h"
+#include "qnovncwindow.h"
 
 #include <QWebSocket>
+#include <QWindow>
 
 #include <qpa/qwindowsysteminterface.h>
 #include <QtGui/qguiapplication.h>
@@ -145,7 +147,7 @@ void QNoVncClient::convertPixels(char *dst, const char *src, const int count, co
 
 void QNoVncClient::readClient()
 {
-    qCDebug(lcVnc) << "readClient" << m_state;
+    qCDebug(lcVncProtocol) << "readClient" << m_state;
     switch (m_state) {
         case Disconnected:
 
@@ -155,7 +157,7 @@ void QNoVncClient::readClient()
                 char proto[13];
                 m_clientSocket->read(proto, 12);
                 proto[12] = '\0';
-                qCDebug(lcVnc, "Client protocol version %s", proto);
+                qCDebug(lcVncProtocol, "Client protocol version %s", proto);
                 if (!strcmp(proto, "RFB 003.008\n")) {
                     m_protocolVersion = V3_8;
                 } else if (!strcmp(proto, "RFB 003.007\n")) {
@@ -457,7 +459,7 @@ void QNoVncClient::setPixelFormat()
         char buf[3];
         m_clientSocket->read(buf, 3); // just padding
         m_pixelFormat.read(m_clientSocket);
-        qCDebug(lcVnc, "Want format: %d %d %d %d %d %d %d %d %d %d",
+        qCDebug(lcVncProtocol, "Want format: %d %d %d %d %d %d %d %d %d %d",
             static_cast<int>(m_pixelFormat.bitsPerPixel),
             static_cast<int>(m_pixelFormat.depth),
             m_pixelFormat.bigEndian,
@@ -512,12 +514,12 @@ void QNoVncClient::setEncodings()
             qint32 enc;
             m_clientSocket->read(reinterpret_cast<char*>(&enc), sizeof(qint32));
             enc = static_cast<qint32>(ntohl(enc));
-            qCDebug(lcVnc, "QNoVncServer::setEncodings: %d", enc);
+            qCDebug(lcVncProtocol, "QNoVncServer::setEncodings: %d", enc);
             switch (enc) {
             case Raw:
                 if (!m_encoder) {
                     m_encoder = new QRfbRawEncoder(this);
-                    qCDebug(lcVnc, "QNoVncServer::setEncodings: using raw");
+                    qCDebug(lcVncEncoding, "QNoVncServer::setEncodings: using raw");
                 }
                break;
             case CopyRect:
@@ -537,7 +539,7 @@ void QNoVncClient::setEncodings()
             case Zlib:
                 if (!m_encoder) {
                     m_encoder = new QRfbZlibEncoder(this);
-                    qCDebug(lcVnc, "QNoVncServer::setEncodings: using zlib");
+                    qCDebug(lcVncEncoding, "QNoVncServer::setEncodings: using zlib");
                 }
                 break;
             case ZRLE:
@@ -560,13 +562,13 @@ void QNoVncClient::setEncodings()
 
     if (!m_encoder) {
         m_encoder = new QRfbRawEncoder(this);
-        qCDebug(lcVnc, "QNoVncServer::setEncodings: fallback using raw");
+        qCDebug(lcVncEncoding, "QNoVncServer::setEncodings: fallback using raw");
     }
 }
 
 void QNoVncClient::frameBufferUpdateRequest()
 {
-    qCDebug(lcVnc) << "FramebufferUpdateRequest";
+    qCDebug(lcVncProtocol) << "FramebufferUpdateRequest";
 
     if (QRfbFrameBufferUpdateRequest ev; ev.read(m_clientSocket)) {
         if (!ev.incremental) {
@@ -582,22 +584,41 @@ void QNoVncClient::frameBufferUpdateRequest()
 
 void QNoVncClient::pointerEvent()
 {
-    static int buttonState = Qt::NoButton;
     if (QRfbPointerEvent ev; ev.read(m_clientSocket)) {
         const QPointF pos = m_server->screen()->geometry().topLeft() + QPoint(ev.x, ev.y);
         if (m_server->screen()->m_readonly) {
             m_handleMsg = false;
             return;
         }
-        int buttonStateChange = buttonState ^ static_cast<int>(ev.buttons);
+        const int buttonStateChange = static_cast<int>(m_buttonState) ^ static_cast<int>(ev.buttons);
         QEvent::Type type = QEvent::MouseMove;
-        if (static_cast<int>(ev.buttons) > buttonState)
+        if (static_cast<int>(ev.buttons) > static_cast<int>(m_buttonState))
             type = QEvent::MouseButtonPress;
-        else if (static_cast<int>(ev.buttons) < buttonState)
+        else if (static_cast<int>(ev.buttons) < static_cast<int>(m_buttonState))
             type = QEvent::MouseButtonRelease;
-        QWindowSystemInterface::handleMouseEvent(nullptr, pos, pos, ev.buttons, static_cast<Qt::MouseButton>(buttonStateChange),
+
+        QWindow *targetWindow = nullptr;
+        if (QNoVncWindow *grabber = m_server->screen()->mouseGrabber())
+            targetWindow = grabber->window();
+        else if (QNoVncWindow *popup = m_server->screen()->topMostPopup())
+            targetWindow = popup->window();
+        else
+            targetWindow = m_server->screen()->topLevelAt(pos.toPoint());
+
+        QPointF localPos = pos;
+        if (targetWindow)
+            localPos = pos - QPointF(targetWindow->geometry().topLeft());
+
+        QWindowSystemInterface::handleMouseEvent(targetWindow, localPos, pos, ev.buttons, static_cast<Qt::MouseButton>(buttonStateChange),
                                                  type, QGuiApplication::keyboardModifiers());
-        buttonState = static_cast<int>(ev.buttons);
+        qCDebug(lcVncInput) << "pointer event" << type << "global" << pos << "local" << localPos
+                            << "target" << targetWindow << "targetType" << (targetWindow ? targetWindow->type() : Qt::Widget)
+                            << "buttons" << ev.buttons << "changed" << static_cast<Qt::MouseButton>(buttonStateChange);
+        qCDebug(lcVncPopup) << "pointer popup routing"
+                            << "target" << targetWindow << "targetType" << (targetWindow ? targetWindow->type() : Qt::Widget)
+                            << "mouseGrabber" << m_server->screen()->mouseGrabber()
+                            << "topMostPopup" << m_server->screen()->topMostPopup();
+        m_buttonState = ev.buttons;
         m_handleMsg = false;
     }
 }
@@ -624,9 +645,22 @@ void QNoVncClient::keyEvent()
 #else
             const QChar unicodeChar = QChar(ushort(ev.unicode));
 #endif
-            QWindowSystemInterface::handleKeyEvent(nullptr,
+            QWindow *targetWindow = nullptr;
+            if (QNoVncWindow *grabber = m_server->screen()->keyboardGrabber())
+                targetWindow = grabber->window();
+            else if (QNoVncWindow *popup = m_server->screen()->topMostPopup())
+                targetWindow = popup->window();
+
+            QWindowSystemInterface::handleKeyEvent(targetWindow,
                                                    ev.down ? QEvent::KeyPress : QEvent::KeyRelease,
                                                    ev.keycode, m_keymod, QString(unicodeChar));
+            qCDebug(lcVncInput) << "key event" << (ev.down ? QEvent::KeyPress : QEvent::KeyRelease)
+                                << "key" << ev.keycode << "target" << targetWindow
+                                << "targetType" << (targetWindow ? targetWindow->type() : Qt::Widget);
+            qCDebug(lcVncPopup) << "key popup routing"
+                                << "target" << targetWindow << "targetType" << (targetWindow ? targetWindow->type() : Qt::Widget)
+                                << "keyboardGrabber" << m_server->screen()->keyboardGrabber()
+                                << "topMostPopup" << m_server->screen()->topMostPopup();
         }
         m_handleMsg = false;
     }

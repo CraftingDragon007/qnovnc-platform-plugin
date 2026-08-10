@@ -33,6 +33,10 @@
 QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcVnc, "qt.qpa.novnc");
+Q_LOGGING_CATEGORY(lcVncProtocol, "qt.qpa.novnc.protocol");
+Q_LOGGING_CATEGORY(lcVncEncoding, "qt.qpa.novnc.encoding");
+Q_LOGGING_CATEGORY(lcVncInput, "qt.qpa.novnc.input");
+Q_LOGGING_CATEGORY(lcVncPopup, "qt.qpa.novnc.popup");
 
 QNoVncDirtyMap::QNoVncDirtyMap(QNoVncScreen *screen)
     : screen(screen), bytesPerPixel(0), numDirty(0)
@@ -432,7 +436,7 @@ void QRfbRawEncoder::write()
 
     const int bytesPerPixel = client->clientBytesPerPixel();
     QRegion rgn = client->dirtyRegion();
-    qCDebug(lcVnc) << "QRfbRawEncoder::write()" << rgn;
+    qCDebug(lcVncEncoding) << "QRfbRawEncoder::write()" << rgn;
 
     QImage screenImage = client->server()->screenImage();
 
@@ -562,7 +566,7 @@ void QRfbZlibEncoder::write()
         return;
     const int bytesPerPixel = client->clientBytesPerPixel();
     QRegion rgn = client->dirtyRegion();
-    qCDebug(lcVnc) << "QRfbZlibEncoder::write()" << rgn;
+    qCDebug(lcVncEncoding) << "QRfbZlibEncoder::write()" << rgn;
 
     QImage screenImage = client->server()->screenImage();
 
@@ -793,7 +797,7 @@ void QNoVncServer::newConnection()
 
     dirtyMap()->reset();
 
-    qCDebug(lcVnc) << "new Connection from: " << clientSocket->localAddress();
+    qCDebug(lcVncProtocol) << "new Connection from: " << clientSocket->localAddress();
 
     QNoVnc_screen->setPowerState(QPlatformScreen::PowerStateOn);
 }

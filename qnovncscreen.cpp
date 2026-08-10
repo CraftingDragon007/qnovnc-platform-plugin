@@ -98,6 +98,74 @@ bool QNoVncScreen::initialize()
     return true;
 }
 
+void QNoVncScreen::removeWindow(QFbWindow *window)
+{
+    if (auto *noVncWindow = static_cast<QNoVncWindow *>(window))
+        clearWindowGrabs(noVncWindow);
+
+    QFbScreen::removeWindow(window);
+}
+
+void QNoVncScreen::setMouseGrabber(QNoVncWindow *window)
+{
+    m_mouseGrabber = window;
+}
+
+void QNoVncScreen::clearMouseGrabber(QNoVncWindow *window)
+{
+    if (m_mouseGrabber == window)
+        m_mouseGrabber = nullptr;
+}
+
+QNoVncWindow *QNoVncScreen::mouseGrabber() const
+{
+    return validGrabber(m_mouseGrabber);
+}
+
+void QNoVncScreen::setKeyboardGrabber(QNoVncWindow *window)
+{
+    m_keyboardGrabber = window;
+}
+
+void QNoVncScreen::clearKeyboardGrabber(QNoVncWindow *window)
+{
+    if (m_keyboardGrabber == window)
+        m_keyboardGrabber = nullptr;
+}
+
+QNoVncWindow *QNoVncScreen::keyboardGrabber() const
+{
+    return validGrabber(m_keyboardGrabber);
+}
+
+void QNoVncScreen::clearWindowGrabs(QNoVncWindow *window)
+{
+    clearMouseGrabber(window);
+    clearKeyboardGrabber(window);
+}
+
+QNoVncWindow *QNoVncScreen::validGrabber(QNoVncWindow *window) const
+{
+    if (!window || !window->window() || !window->window()->isVisible())
+        return nullptr;
+
+    return window;
+}
+
+QNoVncWindow *QNoVncScreen::topMostPopup() const
+{
+    for (QFbWindow *fbWindow : mWindowStack) {
+        if (!fbWindow || !fbWindow->window() || !fbWindow->window()->isVisible())
+            continue;
+
+        auto *window = static_cast<QNoVncWindow *>(fbWindow);
+        if (window->window()->type() == Qt::Popup)
+            return window;
+    }
+
+    return nullptr;
+}
+
 QRegion QNoVncScreen::doRedraw()
 {
     for (int i = 0; i < mWindowStack.size(); ++i)
@@ -144,7 +212,6 @@ QRegion QNoVncScreen::doRedraw()
         painter.setCompositionMode(QPainter::CompositionMode_Source);
         painter.fillRect(rect, mScreenImage.hasAlphaChannel() ? Qt::transparent : Qt::black);
 
-        // Pass 1: paint regular raster/backingstore windows.
         for (qsizetype layerIndex = mWindowStack.size() - 1; layerIndex != -1; layerIndex--) {
             QFbWindow *fbWindow = mWindowStack[layerIndex];
             if (!fbWindow->window()->isVisible())
@@ -156,29 +223,22 @@ QRegion QNoVncScreen::doRedraw()
             auto *window = static_cast<QNoVncWindow *>(fbWindow);
             const bool hasWindowImage = window->image() && !window->image()->isNull();
 
-            if (hasWindowImage)
-                continue;
+            if (fbWindow->window()->type() == Qt::Popup && rect.intersects(windowRect)) {
+                qCDebug(lcVncPopup) << "paint popup"
+                                    << fbWindow->window()
+                                    << "rect" << rect
+                                    << "windowRect" << windowRect
+                                    << "hasWindowImage" << hasWindowImage
+                                    << "hasBackingStore" << (fbWindow->backingStore() != nullptr);
+            }
 
-            if (QFbBackingStore *backingStore = fbWindow->backingStore()) {
+            if (hasWindowImage) {
+                painter.drawImage(rect, *window->image(), windowIntersect);
+            } else if (QFbBackingStore *backingStore = fbWindow->backingStore()) {
                 backingStore->lock();
                 painter.drawImage(rect, backingStore->image(), windowIntersect);
                 backingStore->unlock();
             }
-        }
-
-        // Pass 2: paint OpenGL/readback windows on top so they are not covered by parent backingstores.
-        for (qsizetype layerIndex = mWindowStack.size() - 1; layerIndex != -1; layerIndex--) {
-            QFbWindow *fbWindow = mWindowStack[layerIndex];
-            if (!fbWindow->window()->isVisible())
-                continue;
-
-            auto *window = static_cast<QNoVncWindow *>(fbWindow);
-            if (!window->image() || window->image()->isNull())
-                continue;
-
-            const QRect windowRect = fbWindow->geometry().translated(-screenOffset);
-            const QRect windowIntersect = rect.translated(-windowRect.left(), -windowRect.top());
-            painter.drawImage(rect, *window->image(), windowIntersect);
         }
     }
 

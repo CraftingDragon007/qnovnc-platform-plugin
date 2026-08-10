@@ -16,6 +16,7 @@ class QNoVncServer;
 class QNoVncDirtyMap;
 class QNoVncClientCursor;
 class QNoVncClient;
+class QNoVncWindow;
 class QPlatformOpenGLContext;
 class QSurfaceFormat;
 
@@ -29,9 +30,21 @@ public:
     bool initialize() override;
 
     [[nodiscard]] QPixmap grabWindow(WId wid, int x, int y, int width, int height) const override;
+    void removeWindow(QFbWindow *window) override;
 
     QRegion doRedraw() override;
     QImage *image() { return &mScreenImage; }
+
+    void setMouseGrabber(QNoVncWindow *window);
+    void clearMouseGrabber(QNoVncWindow *window);
+    [[nodiscard]] QNoVncWindow *mouseGrabber() const;
+
+    void setKeyboardGrabber(QNoVncWindow *window);
+    void clearKeyboardGrabber(QNoVncWindow *window);
+    [[nodiscard]] QNoVncWindow *keyboardGrabber() const;
+
+    void clearWindowGrabs(QNoVncWindow *window);
+    [[nodiscard]] QNoVncWindow *topMostPopup() const;
 
     void enableClientCursor(QNoVncClient *client);
     void disableClientCursor(QNoVncClient *client);
@@ -76,6 +89,10 @@ public:
     QPlatformOpenGLContext *m_platformContext = nullptr;
 
 private:
+    [[nodiscard]] QNoVncWindow *validGrabber(QNoVncWindow *window) const;
+
+    QNoVncWindow *m_mouseGrabber = nullptr;
+    QNoVncWindow *m_keyboardGrabber = nullptr;
     QImage m_prevScreenImage; // Shadow buffer for previous frame
 };
 

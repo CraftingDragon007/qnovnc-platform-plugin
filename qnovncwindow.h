@@ -10,8 +10,14 @@ class QNoVncWindow : public QFbWindow
 {
 public:
     explicit QNoVncWindow(QWindow *window);
+    ~QNoVncWindow() override;
 
     QImage* image();
+
+    void setGeometry(const QRect &rect) override;
+    void setVisible(bool visible) override;
+    bool setKeyboardGrabEnabled(bool enabled) override;
+    bool setMouseGrabEnabled(bool enabled) override;
 
 private:
     QImage m_image;
